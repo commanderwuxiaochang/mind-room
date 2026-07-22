@@ -40,7 +40,7 @@ TAIWAN_CITIES = {
     "基隆市": ["仁愛區", "信義區", "中正區", "中山區", "安樂區", "暖暖區", "七堵區"],
     "新竹市": ["東區", "北區", "香山區"],
     "新竹縣": ["竹北市", "竹東鎮", "新埔鎮", "關西鎮", "湖口鄉", "新豐鄉", "芎林鄉", "橫山鄉", "北埔鄉", "寶山鄉", "峨眉鄉", "尖石鄉", "五峰鄉"],
-    "苗栗縣": ["苗栗市", "頭份市", "竹南鎮", "後龍鎮", "通霄鎮", "苑裡鎮", "頭屋鄉", "公館鄉", "銅鑼鄉", "三義鄉", "造橋鄉", "三灣鄉", "獅潭鄉", "大湖鄉", "泰安鄉", "卓蘭鎮", "西湖鄉", "南庄鄉"],
+    "苗栗縣": ["苗栗市", "頭份市", "竹南鎮", "後龍鎮", "通霄鎮", "苑裡鎮", "頭屋鄉", "公館鄉", "銅鑼鄉", "三義鄉", "造橋鄉", "三灣鄉", "獅潭鄉", "大湖鄉", "泰安鄉", "卓蘭鎮", "西湖鄉", "南莊鄉"],
     "彰化縣": ["彰化市", "鹿港鎮", "和美鎮", "線西鄉", "伸港鄉", "福興鄉", "秀水鄉", "花壇鄉", "芬園鄉", "員林市", "溪湖鎮", "田中鎮", "大村鄉", "埔鹽鄉", "埔心鄉", "永靖鄉", "社頭鄉", "二水鄉", "北斗鎮", "二林鎮", "田尾鄉", "埤頭鄉", "芳苑鄉", "大城鄉", "竹塘鄉", "溪州鄉"],
     "南投縣": ["南投市", "埔里鎮", "草屯鎮", "竹山鎮", "集集鎮", "名間鄉", "鹿谷鄉", "中寮鄉", "魚池鄉", "國姓鄉", "水里鄉", "信義鄉", "仁愛鄉"],
     "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "臺西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"],
@@ -188,7 +188,7 @@ if st.session_state.step == 0:
         </ul>
     </li>
 </ul>
-<p style="margin-top: 15px; border-top: 1px dashed #e8e0d2; padding-top: 15px;">如果你正處於這種「不知道該找誰說說心裡話、幫忙解決心中煩悶」的孤單狀態，或者正卡在人生的重大抉擇，希望有人能站在完全不一樣的角度給予建議——<strong>來到這裡，你完全不用擔心任何現實利益與流言蜚語，可以百分之百放心地對笑長說出你的真話。</strong></p>
+<p style="margin-top: 15px; border-top: 1px dashed #e8e0d2; padding-top: 15px;">如果你正處於這種「不知道該找誰說說心裡話、幫忙解決心中煩悶」的孤單狀態，或者正卡在人生的重大抉擇，希望有人能站在完全不一樣的角度給予建議——<strong>來到這裡，你完全不用擔心任何現實利益與流言誹語，可以百分之百放心地對笑長說出你的真話。</strong></p>
 </div>
 
 <div class="fixed-box">
@@ -483,7 +483,9 @@ elif st.session_state.step == 4:
                 
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                # 自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
+                # =========================================================
+                # 🔥【精準修正核心】：自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
+                # =========================================================
                 c_name = st.session_state.form_data['name'].strip()
                 existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
                 
@@ -578,7 +580,7 @@ Line ID: {st.session_state.form_data['line_id']}
                         mf.write(final_md_text)
                 except: pass
 
-                # 訊息發送
+                # 訊息發送（僅傳送給笑長本人，接收客戶完整下單資料）
                 boss_msg = (
                     f"🔔【心境整理室 - 新預訂申請（待確認款項）】\n\n"
                     f"👤 客戶稱呼：{st.session_state.form_data['name']} ({st.session_state.form_data['gender']})\n"
@@ -593,23 +595,13 @@ Line ID: {st.session_state.form_data['line_id']}
                     f"📢 請笑長至後台核對圖片，確認無誤後再手動發簡訊/LINE給對方確認唷！"
                 )
                 
-                client_msg = (
-                    f"✉️【心境整理室 - 預訂申請已送出】\n"
-                    f"你好，系統已收到您的預訂申請！\n\n"
-                    f"📅 預訂日期：{st.session_state.form_data['booking_date']}\n"
-                    f"⏰ 預訂時段：{st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']}\n"
-                    f"🛠️ 服務方式：{st.session_state.form_data['service_type']}\n\n"
-                    f"⚠️ 狀態提醒：目前服務時段已為您初步保留，待心境整理室確認您的轉帳款項無誤後，將由笑長本人發送訊息給您，確認預定的日期時間沒有問題喔！🌱"
-                )
-                
                 send_line_message(boss_msg)
-                send_line_message(client_msg)
                 
                 st.session_state.step = 5
                 st.rerun()
 
 # ==========================================
-# 第五步：預訂申請送出（🎯 100% 鋼鐵鎖定綠底白字 LINE 按鈕）
+# 第五步：預訂申請送出（加入官方 LINE 好友）
 # ==========================================
 elif st.session_state.step == 5:
     st.info("已收到您的預訂申請，請耐心等候審核。")
@@ -631,25 +623,23 @@ elif st.session_state.step == 5:
 </p>
 </div>""", unsafe_allow_html=True)
     
-    # ➕ 加入官方 LINE 好友按鈕（使用最高權限 HTML 鎖定：官方LINE綠底 + 純白粗體字）
+    # ➕ 加入官方 LINE 好友按鈕（HTML 完美強制綠底白字粗體，直連官方網址）
     st.markdown("""
-        <a href="https://line.me/R/ti/p/@your_line_id" target="_blank" style="text-decoration: none !important;">
-            <div style="
-                background-color: #06C755 !important;
-                color: #FFFFFF !important;
-                text-align: center;
-                padding: 14px 20px;
-                border-radius: 25px;
-                font-weight: bold;
-                font-size: 18px;
-                letter-spacing: 0.5px;
-                box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
-                margin: 20px 0;
-                transition: all 0.3s ease;
-            ">
-                💬 點我加入心境整理室官方 LINE 好友
-            </div>
-        </a>
+    <a href="https://lin.ee/77h6NpL" target="_blank" style="
+        display: block;
+        width: 100%;
+        background-color: #06C755;
+        color: #ffffff !important;
+        text-align: center;
+        padding: 14px 20px;
+        border-radius: 25px;
+        font-size: 18px;
+        font-weight: bold;
+        text-decoration: none;
+        box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
+        margin-top: 15px;
+        margin-bottom: 15px;
+    ">💬 點我加入心境整理室官方 LINE 好友</a>
     """, unsafe_allow_html=True)
     
     if st.button("返回心境整理室首頁", use_container_width=True):
