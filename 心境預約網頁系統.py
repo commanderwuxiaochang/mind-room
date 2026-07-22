@@ -7,14 +7,13 @@ import time
 from datetime import datetime, timedelta
 
 # ==========================================
-# 0. 系統核心設定（2026 官方最新 API 金鑰與 Google 雲端試算表）
+# 0. 系統核心設定（2026 官方最新 API 金鑰）
 # ==========================================
 LINE_ACCESS_TOKEN = "1dMN8FEd8exukAB6SgrBrUhJHv3YmIBg8pLjfEcoKI8RNFdDN5AvbKHPZQRtq4bcrSGVetzcxIu46h8cehoqGbpUroacvuFJiNnL0l0Ly5iXQ+kUUVezT++Vl7rCDdxzN91VWqxfQqbDnkiy5R4udgdB04t89/1O/w1cDnyilFU="
 BOSS_USER_ID = "Uf87ce7cf80152b10026141791c07432f"
 
-# ☁️ Google 雲端試算表連動設定
-GOOGLE_SHEET_ID = "1lBx3HDtPZ4NOmKM4N9wXNPBUmDRLVij1nGykGpeI62k"
-GOOGLE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit?usp=sharing"
+# 🟢 請在此填入笑長您的「LINE 官方帳號連結」（格式範例：https://lin.ee/xxxxx 或 https://line.me/R/ti/p/@xxxxx）
+LINE_OFFICIAL_URL = "https://lin.ee/77h6NpL" 
 
 # Windows 系統本地路徑標準化
 CACHE_PATH = os.path.normpath("d:/心境整理室/網頁客戶快取.json")
@@ -79,40 +78,6 @@ def send_line_message(message_text):
     try: requests.post(url, headers=headers, json=payload)
     except: pass
 
-def sync_to_google_sheets(form_info):
-    """雲端試算表安全備份連動機制"""
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        
-        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        key_path = os.path.normpath("d:/心境整理室/google_key.json")
-        
-        if os.path.exists(key_path):
-            creds = Credentials.from_service_account_file(key_path, scopes=scopes)
-            gc = gspread.authorize(creds)
-            sh = gc.open_by_key(GOOGLE_SHEET_ID)
-            ws = sh.sheet1
-            
-            row = [
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                form_info.get('name', ''),
-                form_info.get('gender', ''),
-                form_info.get('age', ''),
-                f"{form_info.get('city', '')}{form_info.get('district', '')}",
-                form_info.get('line_id', ''),
-                form_info.get('service_type', ''),
-                form_info.get('booking_date', ''),
-                f"{form_info.get('booking_start', '')} ~ {form_info.get('booking_end', '')}",
-                form_info.get('duration_label', ''),
-                str(form_info.get('total_price', 0)),
-                form_info.get('pay_note', ''),
-                form_info.get('signature', '')
-            ]
-            ws.append_row(row)
-    except:
-        pass  # 即使雲端網路稍有延遲，亦確保本機 Obsidian 與 LINE 通知完美運作
-
 # ==========================================
 # 背景智慧追蹤：前一小時自動提醒笑長
 # ==========================================
@@ -136,6 +101,7 @@ def start_reminder_daemon():
                                 f"笑長您好！您與客戶【{b['name']}】的預約即將在 1 小時後開始囉！\n"
                                 f"📅 服務時間：{b['date']} {b['start']} ~ {b['end']}\n"
                                 f"🛠️ 服務方式：{b.get('service_type', '未設定')}\n"
+                                f"📱 電話：{b.get('phone', '未提供')}\n"
                                 f"💬 客戶 Line ID：{b.get('line_id', '未提供')}\n\n"
                                 f"※ 請笑長記得提前開啟 LINE 聯繫客戶，做好對話準備喔！🌱"
                             )
@@ -196,6 +162,9 @@ st.markdown("""
     div.stButton > button:first-child { background-color: #8b5a2b !important; color: #ffffff !important; border-radius: 25px !important; border: none !important; padding: 12px 30px !important; font-weight: bold !important; font-size: 16px !important; box-shadow: 0 4px 10px rgba(139,90,43,0.2); transition: all 0.3s ease; }
     div.stButton > button:first-child:hover { background-color: #704723 !important; color: #ffffff !important; transform: translateY(-1px); }
     
+    .line-btn { display: inline-block; background-color: #06C755; color: white !important; font-size: 18px; font-weight: bold; padding: 12px 24px; border-radius: 30px; text-decoration: none; box-shadow: 0 4px 10px rgba(6,199,85,0.3); margin-top: 10px; }
+    .line-btn:hover { background-color: #05b34c; color: white !important; }
+
     .stTextInput>div>div>input, .stSelectbox>div>div>div, .stTextArea>div>div>textarea { color: #3d342e !important; background-color: #ffffff !important; border: 1px solid #d2b48c !important; border-radius: 8px !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -277,8 +246,10 @@ elif st.session_state.step == 1:
     service_options = ["Line文字服務", "Line語音服務"]
     default_service = st.session_state.form_data.get('service_type', "Line文字服務")
     q6 = st.selectbox("6. 請選擇本次期望的服務方式：", service_options, index=service_options.index(default_service) if default_service in service_options else 0)
-    st.markdown('<p style="color: #dc2626; font-size: 13px; font-weight: bold; margin-top: -5px; margin-bottom: 20px;">⚠️ 備註說明：一旦確認選擇此服務方式，在本次服務期間內即不得變更服務方式。</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #dc2626; font-size: 13px; font-weight: bold; margin-top: -5px; margin-bottom: 15px;">⚠️ 備註說明：一旦確認選擇此服務方式，在本次服務期間內即不得變更服務方式。</p>', unsafe_allow_html=True)
     
+    q7 = st.text_input("7. 請提供您的手機號碼：", value=st.session_state.form_data.get('phone', ''))
+
     col_btn1, col_btn2 = st.columns([2, 3])
     with col_btn1:
         check_click = st.button("🔍 檢查歷史個資")
@@ -294,7 +265,8 @@ elif st.session_state.step == 1:
             st.session_state.form_data.update({
                 'name': history.get('name', ''), 'gender': history.get('gender', '男'),
                 'age': history.get('age', ''), 'city': history.get('city', '台北市'),
-                'district': history.get('district', ''), 'line_id': q5.strip()
+                'district': history.get('district', ''), 'phone': history.get('phone', ''),
+                'line_id': q5.strip()
             })
             st.success("🎉 偵測成功！已自動填妥您的歷史資料！")
             st.rerun()
@@ -309,13 +281,14 @@ elif st.session_state.step == 1:
             st.rerun()
     with col_nav2:
         if st.button("下一步：選擇時間", use_container_width=True):
-            if not q1 or not q3 or not q5.strip():
-                st.error("❌ 請完整填寫所有基本欄位資訊。")
+            if not q1 or not q3 or not q5.strip() or not q7.strip():
+                st.error("❌ 請完整填寫所有基本欄位資訊（包含手機號碼）。")
             else:
                 st.session_state.form_data.update({
                     'name': q1, 'gender': q2, 'age': q3,
                     'city': chosen_city, 'district': chosen_district,
-                    'line_id': q5.strip(), 'service_type': q6
+                    'line_id': q5.strip(), 'service_type': q6,
+                    'phone': q7.strip()
                 })
                 st.session_state.step = 2
                 st.rerun()
@@ -491,7 +464,7 @@ elif st.session_state.step == 4:
                 c_cache[st.session_state.form_data['line_id']] = {
                     "name": st.session_state.form_data['name'], "gender": st.session_state.form_data['gender'],
                     "age": st.session_state.form_data['age'], "city": st.session_state.form_data['city'],
-                    "district": st.session_state.form_data['district']
+                    "district": st.session_state.form_data['district'], "phone": st.session_state.form_data['phone']
                 }
                 save_json_file(CACHE_PATH, c_cache)
                 
@@ -503,6 +476,7 @@ elif st.session_state.step == 4:
                     "name": st.session_state.form_data['name'],
                     "service_type": st.session_state.form_data['service_type'],
                     "line_id": st.session_state.form_data['line_id'],
+                    "phone": st.session_state.form_data['phone'],
                     "reminder_sent": False,
                     "receipt_name": safe_filename
                 })
@@ -517,21 +491,14 @@ elif st.session_state.step == 4:
                 })
                 save_json_file(PREORDER_TEMP_PATH, preorder_cache)
                 
-                # ☁️ 同步寫入 Google 雲端試算表備份
-                sync_to_google_sheets(st.session_state.form_data)
-                
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                # =========================================================
-                # 🔥【精準修正核心】：自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
-                # =========================================================
                 c_name = st.session_state.form_data['name'].strip()
                 existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
                 
                 target_md_filename = None
                 client_id_str = None
 
-                # 1. 尋找是否有帶編號的既有檔案（例如：[C0004] 笑長.md）
                 for f_name in existing_md_files:
                     if f_name.endswith(f" {c_name}.md") or f_name == f"{c_name}.md":
                         target_md_filename = f_name
@@ -539,7 +506,6 @@ elif st.session_state.step == 4:
                             client_id_str = f_name[1:f_name.index("]")]
                         break
 
-                # 2. 若為全新客戶，自動算出下一個 CXXXX 編號
                 if not client_id_str:
                     max_id = 0
                     for f_name in existing_md_files:
@@ -555,7 +521,6 @@ elif st.session_state.step == 4:
 
                 full_md_path = os.path.normpath(os.path.join(CLIENT_FILES_DIR, target_md_filename))
 
-                # 3. 讀取原有內容（保留歷史筆記）
                 existing_body = ""
                 if os.path.exists(full_md_path):
                     try:
@@ -568,7 +533,6 @@ elif st.session_state.step == 4:
                                 existing_body = raw_txt.strip()
                     except: pass
 
-                # 4. 組合預約歷史區塊
                 booking_history_block = f"""
 ### 🗓️ 線上網頁預約紀錄（同步時間：{record_time}）
 * **預約時段：** {st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})
@@ -581,7 +545,6 @@ elif st.session_state.step == 4:
 ---
 """
 
-                # 5. 生成完整且精準的 Obsidian 頂部屬性 (YAML Frontmatter)
                 yaml_header = f"""---
 ID: {client_id_str}
 客戶姓名: {c_name}
@@ -593,14 +556,13 @@ ID: {client_id_str}
 居住地: {st.session_state.form_data['city']}{st.session_state.form_data['district']}
 最高學歷: 未提供
 職業: 未提供
-手機: 未提供
+手機: {st.session_state.form_data['phone']}
 電子郵件: 未提供
 Line ID: {st.session_state.form_data['line_id']}
 生日: 未提供
 ---
 """
 
-                # 6. 組合與寫入完整 .md 檔案
                 if not existing_body:
                     final_md_text = f"""{yaml_header}
 # [{client_id_str}] {c_name}
@@ -618,12 +580,12 @@ Line ID: {st.session_state.form_data['line_id']}
                         mf.write(final_md_text)
                 except: pass
 
-                # 訊息發送
                 boss_msg = (
                     f"🔔【心境整理室 - 新預訂申請（待確認款項）】\n\n"
                     f"👤 客戶稱呼：{st.session_state.form_data['name']} ({st.session_state.form_data['gender']})\n"
                     f"🎂 年齡：{st.session_state.form_data['age']} 歲\n"
                     f"🏡 居住地：{st.session_state.form_data['city']}{st.session_state.form_data['district']}\n"
+                    f"📱 手機號碼：{st.session_state.form_data['phone']}\n"
                     f"🛠️ 服務方式：{st.session_state.form_data['service_type']}\n"
                     f"💬 客戶 Line ID：{st.session_state.form_data['line_id']}\n"
                     f"📅 預約時段：{st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})\n"
@@ -665,7 +627,15 @@ elif st.session_state.step == 5:
 <p style="margin-bottom: 5px;">服務日期：<strong style="font-size: 16px; color: #8b5a2b;">{formatted_date}</strong></p>
 <p style="margin-bottom: 5px;">服務時間：<strong style="font-size: 16px; color: #8b5a2b;">{st.session_state.form_data['booking_start']}</strong></p>
 <p style="margin-bottom: 5px;">服務時長：<strong>{st.session_state.form_data['duration_label']}</strong></p>
-<p style="font-size: 15px; color: #dc2626; font-weight: bold; margin-top: 15px; border-top: 1px dashed #e8e0d2; padding-top: 15px; line-height: 1.6;">
+
+<div style="margin-top: 20px; border-top: 1px dashed #d2b48c; padding-top: 20px;">
+    <p style="font-size: 16px; color: #5c4033; font-weight: bold; line-height: 1.6;">
+    感謝您預約完成，請加入心境整理室LINE 官方ID帳號，未來所有服務內容，都將透過此LINE 與您一對一服務!
+    </p>
+    <a href="{LINE_OFFICIAL_URL}" target="_blank" class="line-btn">💬 點此加入心境整理室 LINE 官方帳號</a>
+</div>
+
+<p style="font-size: 14px; color: #dc2626; font-weight: bold; margin-top: 20px; line-height: 1.6;">
 ⚠️ 待心境整理室確認款項後，將由笑長本人發送訊息給你，確認預定的日期時間沒有問題喔！
 </p>
 </div>""", unsafe_allow_html=True)
@@ -707,6 +677,7 @@ if admin_input == ADMIN_PASSWORD:
                 with col_info:
                     st.markdown(f"""
                     * **客戶姓名：** {b['name']}
+                    * **手機號碼：** `{b.get('phone', '未提供')}`
                     * **LINE ID：** `{b.get('line_id', '未提供')}`
                     * **服務方式：** {b.get('service_type', '未提供')}
                     * **定時提醒：** {'已發送' if b.get('reminder_sent') else '未發送（一小時前自動觸發）'}
