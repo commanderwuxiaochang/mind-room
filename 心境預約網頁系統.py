@@ -234,11 +234,12 @@ elif st.session_state.step == 1:
     if default_district not in district_options: default_district = district_options[0]
     chosen_district = st.selectbox("└ 請選擇區域/鄉鎮（第二層）", district_options, index=district_options.index(default_district))
     
-    q5 = st.text_input("5. 請提供 Line ID", value=st.session_state.form_data.get('line_id', ''))
+    q5 = st.text_input("5. 請提供手機號碼", value=st.session_state.form_data.get('phone', ''))
+    q6 = st.text_input("6. 請提供 Line ID", value=st.session_state.form_data.get('line_id', ''))
     
     service_options = ["Line文字服務", "Line語音服務"]
     default_service = st.session_state.form_data.get('service_type', "Line文字服務")
-    q6 = st.selectbox("6. 請選擇本次期望的服務方式：", service_options, index=service_options.index(default_service) if default_service in service_options else 0)
+    q7 = st.selectbox("7. 請選擇本次期望的服務方式：", service_options, index=service_options.index(default_service) if default_service in service_options else 0)
     st.markdown('<p style="color: #dc2626; font-size: 13px; font-weight: bold; margin-top: -5px; margin-bottom: 20px;">⚠️ 備註說明：一旦確認選擇此服務方式，在本次服務期間內即不得變更服務方式。</p>', unsafe_allow_html=True)
     
     col_btn1, col_btn2 = st.columns([2, 3])
@@ -247,16 +248,16 @@ elif st.session_state.step == 1:
     
     st.markdown("""<div class="tips-box">
 <strong>💡 溫馨提示（老朋友免重填）：</strong><br>
-如果您先前已預約過陪伴服務，只需在第 5 點填入您的 <strong>Line ID</strong> 並點擊「檢查歷史個資」，系統會自動載入您的基本資料喔！
+如果您先前已預約過陪伴服務，只需在第 6 點填入您的 <strong>Line ID</strong> 並點擊「檢查歷史個資」，系統會自動載入您的基本資料喔！
 </div>""", unsafe_allow_html=True)
     
-    if check_click and q5.strip():
-        history = load_json_file(CACHE_PATH, {}).get(q5.strip())
+    if check_click and q6.strip():
+        history = load_json_file(CACHE_PATH, {}).get(q6.strip())
         if history:
             st.session_state.form_data.update({
                 'name': history.get('name', ''), 'gender': history.get('gender', '男'),
                 'age': history.get('age', ''), 'city': history.get('city', '台北市'),
-                'district': history.get('district', ''), 'line_id': q5.strip()
+                'district': history.get('district', ''), 'phone': history.get('phone', ''), 'line_id': q6.strip()
             })
             st.success("🎉 偵測成功！已自動填妥您的歷史資料！")
             st.rerun()
@@ -271,13 +272,13 @@ elif st.session_state.step == 1:
             st.rerun()
     with col_nav2:
         if st.button("下一步：選擇時間", use_container_width=True):
-            if not q1 or not q3 or not q5.strip():
-                st.error("❌ 請完整填寫所有基本欄位資訊。")
+            if not q1 or not q3 or not q5.strip() or not q6.strip():
+                st.error("❌ 請完整填寫所有基本欄位資訊（包含手機號碼與 Line ID）。")
             else:
                 st.session_state.form_data.update({
                     'name': q1, 'gender': q2, 'age': q3,
                     'city': chosen_city, 'district': chosen_district,
-                    'line_id': q5.strip(), 'service_type': q6
+                    'phone': q5.strip(), 'line_id': q6.strip(), 'service_type': q7
                 })
                 st.session_state.step = 2
                 st.rerun()
@@ -453,7 +454,7 @@ elif st.session_state.step == 4:
                 c_cache[st.session_state.form_data['line_id']] = {
                     "name": st.session_state.form_data['name'], "gender": st.session_state.form_data['gender'],
                     "age": st.session_state.form_data['age'], "city": st.session_state.form_data['city'],
-                    "district": st.session_state.form_data['district']
+                    "district": st.session_state.form_data['district'], "phone": st.session_state.form_data['phone']
                 }
                 save_json_file(CACHE_PATH, c_cache)
                 
@@ -465,6 +466,7 @@ elif st.session_state.step == 4:
                     "name": st.session_state.form_data['name'],
                     "service_type": st.session_state.form_data['service_type'],
                     "line_id": st.session_state.form_data['line_id'],
+                    "phone": st.session_state.form_data['phone'],
                     "reminder_sent": False,
                     "receipt_name": safe_filename
                 })
@@ -535,6 +537,7 @@ elif st.session_state.step == 4:
 * **預計費用：** NT$ {st.session_state.form_data['total_price']} 元
 * **付款備註/轉帳後五碼：** {st.session_state.form_data['pay_note']}
 * **轉帳憑證檔名：** `{st.session_state.form_data['receipt_name']}`
+* **手機號碼：** {st.session_state.form_data['phone']}
 * **電子簽章正名：** {st.session_state.form_data['signature']} (已同意法律條款)
 
 ---
@@ -552,7 +555,7 @@ ID: {client_id_str}
 居住地: {st.session_state.form_data['city']}{st.session_state.form_data['district']}
 最高學歷: 未提供
 職業: 未提供
-手機: 未提供
+手機: {st.session_state.form_data['phone']}
 電子郵件: 未提供
 Line ID: {st.session_state.form_data['line_id']}
 生日: 未提供
@@ -577,12 +580,13 @@ Line ID: {st.session_state.form_data['line_id']}
                         mf.write(final_md_text)
                 except: pass
 
-                # 🔔 僅發送完整客戶資訊給笑長（已移除重複發送給客人的訊息）
+                # 訊息發送（僅發送笑長管理訊息通知，不再重複發送給笑長）
                 boss_msg = (
                     f"🔔【心境整理室 - 新預訂申請（待確認款項）】\n\n"
                     f"👤 客戶稱呼：{st.session_state.form_data['name']} ({st.session_state.form_data['gender']})\n"
                     f"🎂 年齡：{st.session_state.form_data['age']} 歲\n"
                     f"🏡 居住地：{st.session_state.form_data['city']}{st.session_state.form_data['district']}\n"
+                    f"📱 手機號碼：{st.session_state.form_data['phone']}\n"
                     f"🛠️ 服務方式：{st.session_state.form_data['service_type']}\n"
                     f"💬 客戶 Line ID：{st.session_state.form_data['line_id']}\n"
                     f"📅 預約時段：{st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})\n"
@@ -597,7 +601,7 @@ Line ID: {st.session_state.form_data['line_id']}
                 st.rerun()
 
 # ==========================================
-# 第五步：預訂申請送出
+# 第五步：預訂申請送出（加入官方 LINE 好友按鈕 - LINE 綠底白字版）
 # ==========================================
 elif st.session_state.step == 5:
     st.info("已收到您的預訂申請，請耐心等候審核。")
@@ -619,22 +623,26 @@ elif st.session_state.step == 5:
 </p>
 </div>""", unsafe_allow_html=True)
     
-    # 🟢 修正後的 LINE 官方加好友按鈕（綠底白字、正確網址、全新完整文字）
+    # 💚 LINE 綠底白字官方加好友按鈕（修復 404，網址改為 https://lin.ee/77h6NpL）
     st.markdown("""
-        <div style="text-align: center; margin-top: 25px; margin-bottom: 25px;">
-            <a href="https://lin.ee/77h6NpL" target="_blank" style="
-                background-color: #06C755;
-                color: white;
-                padding: 14px 24px;
-                font-size: 16px;
-                font-weight: bold;
-                text-decoration: none;
-                border-radius: 30px;
-                box-shadow: 0 4px 10px rgba(6,199,85,0.3);
-                display: inline-block;
-                transition: all 0.3s ease;
-            ">🟢 點我加入心境整理室官方LINE好友，未來所有服務都將在此官方LINE與您服務，未加入好友將無法為您服務!</a>
-        </div>
+        <a href="https://lin.ee/77h6NpL" target="_blank" style="
+            display: block;
+            width: 100%;
+            background-color: #06C755;
+            color: #ffffff !important;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(6,199,85,0.3);
+            line-height: 1.5;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        ">
+            💬 點我加入心境整理室官方LINE好友，未來所有服務都將在此官方LINE與您服務，未加入好友將無法為您服務!
+        </a>
     """, unsafe_allow_html=True)
     
     if st.button("返回心境整理室首頁", use_container_width=True):
@@ -674,6 +682,7 @@ if admin_input == ADMIN_PASSWORD:
                 with col_info:
                     st.markdown(f"""
                     * **客戶姓名：** {b['name']}
+                    * **手機號碼：** `{b.get('phone', '未提供')}`
                     * **LINE ID：** `{b.get('line_id', '未提供')}`
                     * **服務方式：** {b.get('service_type', '未提供')}
                     * **定時提醒：** {'已發送' if b.get('reminder_sent') else '未發送（一小時前自動觸發）'}
