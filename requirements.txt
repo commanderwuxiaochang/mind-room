@@ -1,0 +1,9 @@
+streamlit
+pandas
+requests
+line-bot-sdk
+pillow
+gspread
+google-auth
+python-dateutil
+pytz
