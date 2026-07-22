@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 LINE_ACCESS_TOKEN = "1dMN8FEd8exukAB6SgrBrUhJHv3YmIBg8pLjfEcoKI8RNFdDN5AvbKHPZQRtq4bcrSGVetzcxIu46h8cehoqGbpUroacvuFJiNnL0l0Ly5iXQ+kUUVezT++Vl7rCDdxzN91VWqxfQqbDnkiy5R4udgdB04t89/1O/w1cDnyilFU="
 BOSS_USER_ID = "Uf87ce7cf80152b10026141791c07432f"
 
-# Windows 系統本地路徑標準化[cite: 1]
+# Windows 系統本地路徑標準化
 CACHE_PATH = os.path.normpath("d:/心境整理室/網頁客戶快取.json")
 BOOKING_DB_PATH = os.path.normpath("d:/心境整理室/已預約時段.json")
 PREORDER_TEMP_PATH = os.path.normpath("d:/心境整理室/預約收款暫存.json")
@@ -22,14 +22,14 @@ CLIENT_FILES_DIR = os.path.normpath("d:/心境整理室/05_客戶檔案")
 # 🔐 笑長後台登入密碼
 ADMIN_PASSWORD = "05210809"
 
-# 確保所有本地儲存核心資料夾皆存在[cite: 1]
+# 確保所有本地儲存核心資料夾皆存在
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CLIENT_FILES_DIR, exist_ok=True)
 
-# 網頁初始設定[cite: 1]
+# 網頁初始設定
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
 
-# 台灣行政區資料[cite: 1]
+# 台灣行政區資料
 TAIWAN_CITIES = {
     "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
     "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"],
@@ -49,26 +49,26 @@ TAIWAN_CITIES = {
     "屏東縣": ["屏東市", "三地門鄉", "霧臺鄉", "瑪家鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "長治鄉", "麟洛鄉", "竹田鄉", "內埔鄉", "萬丹鄉", "潮州鎮", "泰武鄉", "來義鄉", "萬巒鄉", "嵌頂鄉", "新埤鄉", "南州鄉", "林邊鄉", "東港鎮", "琉球鄉", "佳冬鄉", "新園鄉", "辦寮鄉", "枋山鄉", "春日鄉", "獅子鄉", "牡丹鄉", "車城鄉", "滿州鄉", "恆春鎮"],
     "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"],
     "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"],
-    "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "大武鄉", "太麻里鄉", "東河鄉", "長濱鄉", "鹿野鄉", "池上鄉", "綠島鄉", "延平鄉", "海端鄉", "海端鄉", "達仁鄉", "金峰鄉", "蘭嶼鄉"],
+    "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "大武鄉", "太麻里鄉", "東河鄉", "長濱鄉", "鹿野鄉", "池上鄉", "綠島鄉", "延平鄉", "海端鄉", "達仁鄉", "金峰鄉", "蘭嶼鄉"],
     "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"],
     "金門縣": ["金城鎮", "金沙鎮", "金湖鎮", "金寧鄉", "烈嶼鄉", "烏坵鄉"],
     "連江縣": ["南竿鄉", "北竿鄉", "莒光鄉", "東引鄉"],
     "其他": ["其他區域"]
 }
 
-def load_json_file(path, default_val):[cite: 1]
+def load_json_file(path, default_val):
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f: return json.load(f)
         except: return default_val
     return default_val
 
-def save_json_file(path, data):[cite: 1]
+def save_json_file(path, data):
     try:
         with open(path, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
     except: pass
 
-def send_line_message(message_text):[cite: 1]
+def send_line_message(message_text):
     url = "https://api.line.me/v2/bot/message/push"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"}
     payload = {"to": BOSS_USER_ID, "messages": [{"type": "text", "text": message_text}]}
@@ -79,7 +79,7 @@ def send_line_message(message_text):[cite: 1]
 # 背景智慧追蹤：前一小時自動提醒笑長
 # ==========================================
 @st.cache_resource
-def start_reminder_daemon():[cite: 1]
+def start_reminder_daemon():
     def reminder_loop():
         while True:
             try:
@@ -98,8 +98,7 @@ def start_reminder_daemon():[cite: 1]
                                 f"笑長您好！您與客戶【{b['name']}】的預約即將在 1 小時後開始囉！\n"
                                 f"📅 服務時間：{b['date']} {b['start']} ~ {b['end']}\n"
                                 f"🛠️ 服務方式：{b.get('service_type', '未設定')}\n"
-                                f"💬 客戶 Line ID：{b.get('line_id', '未提供')}\n"
-                                f"📱 客戶手機號碼：{b.get('phone', '未提供')}\n\n"
+                                f"💬 客戶 Line ID：{b.get('line_id', '未提供')}\n\n"
                                 f"※ 請笑長記得提前開啟 LINE 聯繫客戶，做好對話準備喔！🌱"
                             )
                             send_line_message(reminder_msg)
@@ -212,7 +211,7 @@ if st.session_state.step == 0:
         st.rerun()
 
 # ==========================================
-# 第一步：基本個資與服務方式選擇（已加回手機號碼欄位）
+# 第一步：基本個資與服務方式選擇
 # ==========================================
 elif st.session_state.step == 1:
     st.markdown('<div class="step-title">第一步：填寫基本聯絡資料</div>', unsafe_allow_html=True)
@@ -235,14 +234,11 @@ elif st.session_state.step == 1:
     if default_district not in district_options: default_district = district_options[0]
     chosen_district = st.selectbox("└ 請選擇區域/鄉鎮（第二層）", district_options, index=district_options.index(default_district))
     
-    # 📱 帶回的手機號碼欄位
-    q_phone = st.text_input("5. 請提供手機號碼", value=st.session_state.form_data.get('phone', ''))
-    
-    q5 = st.text_input("6. 請提供 Line ID", value=st.session_state.form_data.get('line_id', ''))
+    q5 = st.text_input("5. 請提供 Line ID", value=st.session_state.form_data.get('line_id', ''))
     
     service_options = ["Line文字服務", "Line語音服務"]
     default_service = st.session_state.form_data.get('service_type', "Line文字服務")
-    q6 = st.selectbox("7. 請選擇本次期望的服務方式：", service_options, index=service_options.index(default_service) if default_service in service_options else 0)
+    q6 = st.selectbox("6. 請選擇本次期望的服務方式：", service_options, index=service_options.index(default_service) if default_service in service_options else 0)
     st.markdown('<p style="color: #dc2626; font-size: 13px; font-weight: bold; margin-top: -5px; margin-bottom: 20px;">⚠️ 備註說明：一旦確認選擇此服務方式，在本次服務期間內即不得變更服務方式。</p>', unsafe_allow_html=True)
     
     col_btn1, col_btn2 = st.columns([2, 3])
@@ -251,7 +247,7 @@ elif st.session_state.step == 1:
     
     st.markdown("""<div class="tips-box">
 <strong>💡 溫馨提示（老朋友免重填）：</strong><br>
-如果您先前已預約過陪伴服務，只需在第 6 點填入您的 <strong>Line ID</strong> 並點擊「檢查歷史個資」，系統會自動載入您的基本資料喔！
+如果您先前已預約過陪伴服務，只需在第 5 點填入您的 <strong>Line ID</strong> 並點擊「檢查歷史個資」，系統會自動載入您的基本資料喔！
 </div>""", unsafe_allow_html=True)
     
     if check_click and q5.strip():
@@ -260,8 +256,7 @@ elif st.session_state.step == 1:
             st.session_state.form_data.update({
                 'name': history.get('name', ''), 'gender': history.get('gender', '男'),
                 'age': history.get('age', ''), 'city': history.get('city', '台北市'),
-                'district': history.get('district', ''), 'phone': history.get('phone', ''),
-                'line_id': q5.strip()
+                'district': history.get('district', ''), 'line_id': q5.strip()
             })
             st.success("🎉 偵測成功！已自動填妥您的歷史資料！")
             st.rerun()
@@ -276,13 +271,13 @@ elif st.session_state.step == 1:
             st.rerun()
     with col_nav2:
         if st.button("下一步：選擇時間", use_container_width=True):
-            if not q1 or not q3 or not q5.strip() or not q_phone.strip():
-                st.error("❌ 請完整填寫所有基本欄位資訊（包含手機號碼與 Line ID）。")
+            if not q1 or not q3 or not q5.strip():
+                st.error("❌ 請完整填寫所有基本欄位資訊。")
             else:
                 st.session_state.form_data.update({
                     'name': q1, 'gender': q2, 'age': q3,
                     'city': chosen_city, 'district': chosen_district,
-                    'phone': q_phone.strip(), 'line_id': q5.strip(), 'service_type': q6
+                    'line_id': q5.strip(), 'service_type': q6
                 })
                 st.session_state.step = 2
                 st.rerun()
@@ -458,7 +453,7 @@ elif st.session_state.step == 4:
                 c_cache[st.session_state.form_data['line_id']] = {
                     "name": st.session_state.form_data['name'], "gender": st.session_state.form_data['gender'],
                     "age": st.session_state.form_data['age'], "city": st.session_state.form_data['city'],
-                    "district": st.session_state.form_data['district'], "phone": st.session_state.form_data['phone']
+                    "district": st.session_state.form_data['district']
                 }
                 save_json_file(CACHE_PATH, c_cache)
                 
@@ -470,7 +465,6 @@ elif st.session_state.step == 4:
                     "name": st.session_state.form_data['name'],
                     "service_type": st.session_state.form_data['service_type'],
                     "line_id": st.session_state.form_data['line_id'],
-                    "phone": st.session_state.form_data['phone'],
                     "reminder_sent": False,
                     "receipt_name": safe_filename
                 })
@@ -496,6 +490,7 @@ elif st.session_state.step == 4:
                 target_md_filename = None
                 client_id_str = None
 
+                # 1. 尋找是否有帶編號的既有檔案（例如：[C0004] 笑長.md）
                 for f_name in existing_md_files:
                     if f_name.endswith(f" {c_name}.md") or f_name == f"{c_name}.md":
                         target_md_filename = f_name
@@ -503,6 +498,7 @@ elif st.session_state.step == 4:
                             client_id_str = f_name[1:f_name.index("]")]
                         break
 
+                # 2. 若為全新客戶，自動算出下一個 CXXXX 編號
                 if not client_id_str:
                     max_id = 0
                     for f_name in existing_md_files:
@@ -518,6 +514,7 @@ elif st.session_state.step == 4:
 
                 full_md_path = os.path.normpath(os.path.join(CLIENT_FILES_DIR, target_md_filename))
 
+                # 3. 讀取原有內容（保留歷史筆記）
                 existing_body = ""
                 if os.path.exists(full_md_path):
                     try:
@@ -530,6 +527,7 @@ elif st.session_state.step == 4:
                                 existing_body = raw_txt.strip()
                     except: pass
 
+                # 4. 組合預約歷史區塊
                 booking_history_block = f"""
 ### 🗓️ 線上網頁預約紀錄（同步時間：{record_time}）
 * **預約時段：** {st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})
@@ -542,7 +540,7 @@ elif st.session_state.step == 4:
 ---
 """
 
-                # 💡 YAML 屬性自動帶入手機號碼
+                # 5. 生成完整且精準的 Obsidian 頂部屬性 (YAML Frontmatter)
                 yaml_header = f"""---
 ID: {client_id_str}
 客戶姓名: {c_name}
@@ -554,13 +552,14 @@ ID: {client_id_str}
 居住地: {st.session_state.form_data['city']}{st.session_state.form_data['district']}
 最高學歷: 未提供
 職業: 未提供
-手機: {st.session_state.form_data['phone']}
+手機: 未提供
 電子郵件: 未提供
 Line ID: {st.session_state.form_data['line_id']}
 生日: 未提供
 ---
 """
 
+                # 6. 組合與寫入完整 .md 檔案
                 if not existing_body:
                     final_md_text = f"""{yaml_header}
 # [{client_id_str}] {c_name}
@@ -578,11 +577,11 @@ Line ID: {st.session_state.form_data['line_id']}
                         mf.write(final_md_text)
                 except: pass
 
+                # 訊息發送
                 boss_msg = (
                     f"🔔【心境整理室 - 新預訂申請（待確認款項）】\n\n"
                     f"👤 客戶稱呼：{st.session_state.form_data['name']} ({st.session_state.form_data['gender']})\n"
                     f"🎂 年齡：{st.session_state.form_data['age']} 歲\n"
-                    f"📱 手機：{st.session_state.form_data['phone']}\n"
                     f"🏡 居住地：{st.session_state.form_data['city']}{st.session_state.form_data['district']}\n"
                     f"🛠️ 服務方式：{st.session_state.form_data['service_type']}\n"
                     f"💬 客戶 Line ID：{st.session_state.form_data['line_id']}\n"
@@ -608,7 +607,7 @@ Line ID: {st.session_state.form_data['line_id']}
                 st.rerun()
 
 # ==========================================
-# 第五步：預訂申請送出（已加回加入 LINE 官方帳號好友按鈕）
+# 第五步：預訂申請送出
 # ==========================================
 elif st.session_state.step == 5:
     st.info("已收到您的預訂申請，請耐心等候審核。")
@@ -625,22 +624,15 @@ elif st.session_state.step == 5:
 <p style="margin-bottom: 5px;">服務日期：<strong style="font-size: 16px; color: #8b5a2b;">{formatted_date}</strong></p>
 <p style="margin-bottom: 5px;">服務時間：<strong style="font-size: 16px; color: #8b5a2b;">{st.session_state.form_data['booking_start']}</strong></p>
 <p style="margin-bottom: 5px;">服務時長：<strong>{st.session_state.form_data['duration_label']}</strong></p>
+<p style="margin-top: 15px; margin-bottom: 15px;">
+    🔗 <strong>加入笑長官方 LINE 好友</strong><br>
+    點擊下方按鈕即可快速加好友聯繫：<br><br>
+    <a href="https://lin.ee/77h6NpL" target="_blank" style="background-color: #06c755; color: white; padding: 10px 20px; border-radius: 20px; text-decoration: none; font-weight: bold; display: inline-block;">點此加 LINE 官方好友</a>
+</p>
 <p style="font-size: 15px; color: #dc2626; font-weight: bold; margin-top: 15px; border-top: 1px dashed #e8e0d2; padding-top: 15px; line-height: 1.6;">
 ⚠️ 待心境整理室確認款項後，將由笑長本人發送訊息給你，確認預定的日期時間沒有問題喔！
 </p>
 </div>""", unsafe_allow_html=True)
-
-    # 💚【新增功能】：引導客戶加入官方 LINE 帳號好友的專屬按鈕
-    st.markdown("""
-        <div style="text-align: center; margin: 25px 0;">
-            <a href="https://line.me/R/ti/p/@your_line_id" target="_blank">
-                <button style="background-color: #06C755; color: white; border: none; padding: 14px 28px; font-size: 17px; font-weight: bold; border-radius: 30px; cursor: pointer; box-shadow: 0 4px 12px rgba(6,199,85,0.3); transition: all 0.3s ease;">
-                    💚 點擊加入心境整理室官方 LINE 好友
-                </button>
-            </a>
-            <p style="font-size: 13px; color: #6e543c; margin-top: 8px;">（若您尚未加入笑長的官方 LINE，請點擊上方按鈕直接加好友以利後續聯繫）</p>
-        </div>
-    """, unsafe_allow_html=True)
     
     if st.button("返回心境整理室首頁", use_container_width=True):
         st.session_state.clear()
@@ -652,6 +644,11 @@ elif st.session_state.step == 5:
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔑 管理端登入")
 admin_input = st.sidebar.text_input("輸入笑長管理密碼：", type="password")
+
+# 官方 LINE 加好友專區 (側邊欄隨時可見)
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💬 官方 LINE 快速連結")
+st.sidebar.markdown("[點此加入笑長官方 LINE](https://lin.ee/77h6NpL)")
 
 if admin_input == ADMIN_PASSWORD:
     st.sidebar.success("🔓 後台已成功解鎖，顯示於主網頁下方！")
@@ -679,7 +676,6 @@ if admin_input == ADMIN_PASSWORD:
                 with col_info:
                     st.markdown(f"""
                     * **客戶姓名：** {b['name']}
-                    * **手機號碼：** `{b.get('phone', '未提供')}`
                     * **LINE ID：** `{b.get('line_id', '未提供')}`
                     * **服務方式：** {b.get('service_type', '未提供')}
                     * **定時提醒：** {'已發送' if b.get('reminder_sent') else '未發送（一小時前自動觸發）'}
