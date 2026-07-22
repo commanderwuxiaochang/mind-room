@@ -483,16 +483,14 @@ elif st.session_state.step == 4:
                 
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                # =========================================================
-                # 🔥 自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
-                # =========================================================
+                # 自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
                 c_name = st.session_state.form_data['name'].strip()
                 existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
                 
                 target_md_filename = None
                 client_id_str = None
 
-                # 1. 尋找是否有帶編號的既有檔案
+                # 1. 尋找是否有帶編號的既有檔案（例如：[C0004] 笑長.md）
                 for f_name in existing_md_files:
                     if f_name.endswith(f" {c_name}.md") or f_name == f"{c_name}.md":
                         target_md_filename = f_name
@@ -611,7 +609,7 @@ Line ID: {st.session_state.form_data['line_id']}
                 st.rerun()
 
 # ==========================================
-# 第五步：預訂申請送出（高清綠底白字 LINE 按鈕版）
+# 第五步：預訂申請送出（🎯 100% 鋼鐵鎖定綠底白字 LINE 按鈕）
 # ==========================================
 elif st.session_state.step == 5:
     st.info("已收到您的預訂申請，請耐心等候審核。")
@@ -633,27 +631,25 @@ elif st.session_state.step == 5:
 </p>
 </div>""", unsafe_allow_html=True)
     
-    # ➕ 修正：強效型高對比度「LINE 鮮綠背景 + 純白粗體字」按鈕
+    # ➕ 加入官方 LINE 好友按鈕（使用最高權限 HTML 鎖定：官方LINE綠底 + 純白粗體字）
     st.markdown("""
-    <a href="https://line.me/R/ti/p/@your_line_id" target="_blank" style="
-        display: block;
-        width: 100%;
-        background-color: #06C755;
-        color: #FFFFFF !important;
-        text-align: center;
-        padding: 16px 20px;
-        text-decoration: none !important;
-        font-size: 16px;
-        font-weight: bold;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
-        margin-top: 20px;
-        margin-bottom: 20px;
-        line-height: 1.6;
-        word-wrap: break-word;
-    ">
-        💬 點我加入心境整理室官方LINE好友，未來所有服務都將在此官方LINE與您服務，未加入好友將無法為您服務!請立即點我加入好友
-    </a>
+        <a href="https://line.me/R/ti/p/@your_line_id" target="_blank" style="text-decoration: none !important;">
+            <div style="
+                background-color: #06C755 !important;
+                color: #FFFFFF !important;
+                text-align: center;
+                padding: 14px 20px;
+                border-radius: 25px;
+                font-weight: bold;
+                font-size: 18px;
+                letter-spacing: 0.5px;
+                box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
+                margin: 20px 0;
+                transition: all 0.3s ease;
+            ">
+                💬 點我加入心境整理室官方 LINE 好友
+            </div>
+        </a>
     """, unsafe_allow_html=True)
     
     if st.button("返回心境整理室首頁", use_container_width=True):
