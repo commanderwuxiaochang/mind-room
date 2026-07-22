@@ -484,7 +484,7 @@ elif st.session_state.step == 4:
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 # =========================================================
-                # 🔥【精準修正核心】：自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
+                # 🔥 自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
                 # =========================================================
                 c_name = st.session_state.form_data['name'].strip()
                 existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
@@ -492,7 +492,7 @@ elif st.session_state.step == 4:
                 target_md_filename = None
                 client_id_str = None
 
-                # 1. 尋找是否有帶編號的既有檔案（例如：[C0004] 笑長.md）
+                # 1. 尋找是否有帶編號的既有檔案
                 for f_name in existing_md_files:
                     if f_name.endswith(f" {c_name}.md") or f_name == f"{c_name}.md":
                         target_md_filename = f_name
@@ -580,7 +580,7 @@ Line ID: {st.session_state.form_data['line_id']}
                         mf.write(final_md_text)
                 except: pass
 
-                # 訊息發送（僅發送笑長管理訊息通知，不再重複發送給笑長）
+                # 訊息發送
                 boss_msg = (
                     f"🔔【心境整理室 - 新預訂申請（待確認款項）】\n\n"
                     f"👤 客戶稱呼：{st.session_state.form_data['name']} ({st.session_state.form_data['gender']})\n"
@@ -595,13 +595,23 @@ Line ID: {st.session_state.form_data['line_id']}
                     f"📢 請笑長至後台核對圖片，確認無誤後再手動發簡訊/LINE給對方確認唷！"
                 )
                 
+                client_msg = (
+                    f"✉️【心境整理室 - 預訂申請已送出】\n"
+                    f"你好，系統已收到您的預訂申請！\n\n"
+                    f"📅 預訂日期：{st.session_state.form_data['booking_date']}\n"
+                    f"⏰ 預訂時段：{st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']}\n"
+                    f"🛠️ 服務方式：{st.session_state.form_data['service_type']}\n\n"
+                    f"⚠️ 狀態提醒：目前服務時段已為您初步保留，待心境整理室確認您的轉帳款項無誤後，將由笑長本人發送訊息給您，確認預定的日期時間沒有問題喔！🌱"
+                )
+                
                 send_line_message(boss_msg)
+                send_line_message(client_msg)
                 
                 st.session_state.step = 5
                 st.rerun()
 
 # ==========================================
-# 第五步：預訂申請送出（加入官方 LINE 好友按鈕 - LINE 綠底白字版）
+# 第五步：預訂申請送出（高清綠底白字 LINE 按鈕版）
 # ==========================================
 elif st.session_state.step == 5:
     st.info("已收到您的預訂申請，請耐心等候審核。")
@@ -623,26 +633,27 @@ elif st.session_state.step == 5:
 </p>
 </div>""", unsafe_allow_html=True)
     
-    # 💚 LINE 綠底白字官方加好友按鈕（修復 404，網址改為 https://lin.ee/77h6NpL）
+    # ➕ 修正：強效型高對比度「LINE 鮮綠背景 + 純白粗體字」按鈕
     st.markdown("""
-        <a href="https://lin.ee/77h6NpL" target="_blank" style="
-            display: block;
-            width: 100%;
-            background-color: #06C755;
-            color: #ffffff !important;
-            text-align: center;
-            padding: 14px 16px;
-            text-decoration: none;
-            font-size: 15px;
-            font-weight: bold;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(6,199,85,0.3);
-            line-height: 1.5;
-            margin-top: 15px;
-            margin-bottom: 20px;
-        ">
-            💬 點我加入心境整理室官方LINE好友，未來所有服務都將在此官方LINE與您服務，未加入好友將無法為您服務!
-        </a>
+    <a href="https://line.me/R/ti/p/@your_line_id" target="_blank" style="
+        display: block;
+        width: 100%;
+        background-color: #06C755;
+        color: #FFFFFF !important;
+        text-align: center;
+        padding: 16px 20px;
+        text-decoration: none !important;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
+        margin-top: 20px;
+        margin-bottom: 20px;
+        line-height: 1.6;
+        word-wrap: break-word;
+    ">
+        💬 點我加入心境整理室官方LINE好友，未來所有服務都將在此官方LINE與您服務，未加入好友將無法為您服務!請立即點我加入好友
+    </a>
     """, unsafe_allow_html=True)
     
     if st.button("返回心境整理室首頁", use_container_width=True):
