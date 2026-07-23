@@ -33,7 +33,7 @@ st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon=
 TAIWAN_CITIES = {
     "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
     "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"],
-    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "復興區"],
+    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "複興區"],
     "台中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"],
     "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新化區", "左鎮區", "玉井區", "楠西區", "南化區", "仁德區", "關廟區", "龍崎區", "官田區", "麻豆區", "佳里區", "西港區", "七股區", "將軍區", "學甲區", "北門區", "新營區", "後壁區", "白河區", "東山區", "六甲區", "下營區", "柳營區", "鹽水區", "善化區", "大內區", "山上區", "新市區", "安定區"],
     "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"],
@@ -284,7 +284,7 @@ elif st.session_state.step == 1:
                 st.rerun()
 
 # ==========================================
-# 第二步：動態時段選擇
+# 第二步：動態時段選擇（過濾過去與半小時內時段）
 # ==========================================
 elif st.session_state.step == 2:
     st.markdown('<div class="step-title">第二步：選擇您有空的時間</div>', unsafe_allow_html=True)
@@ -307,7 +307,15 @@ elif st.session_state.step == 2:
     
     st.metric(label="📊 本次服務預計總金額", value=f"NT$ {total_price} 元")
     
-    selected_date = st.date_input("請選擇預約日期：", min_value=datetime.today().date())
+    # 🕒 自動校正台灣標準時區時間
+    try:
+        import pytz
+        tw_tz = pytz.timezone('Asia/Taipei')
+        now_dt = datetime.now(tw_tz)
+    except:
+        now_dt = datetime.now()
+
+    selected_date = st.date_input("請選擇預約日期：", min_value=now_dt.date())
     weekday_num = selected_date.weekday()
     
     if weekday_num in [0, 1, 2]:
@@ -322,10 +330,23 @@ elif st.session_state.step == 2:
         start_time_current = datetime.strptime("08:00", "%H:%M")
         end_time_limit = datetime.strptime("20:00", "%H:%M")
         
+        # ⏱️ 強制設定：最快預約時間必須在客戶開啟頁面填寫時間的半小時之後
+        earliest_allowed_dt = now_dt.replace(tzinfo=None) + timedelta(minutes=30)
+        
         while start_time_current + timedelta(minutes=duration_mins) <= end_time_limit:
             p_start = start_time_current
             p_end = start_time_current + timedelta(minutes=duration_mins)
             
+            # 將時分結合選擇日期精準比對
+            slot_dt = datetime.combine(selected_date, p_start.time())
+            
+            # 若選擇今天，自動過濾掉早於「填寫時間半小時後」的所有過時/太近時段
+            is_too_soon_or_past = False
+            if selected_date == now_dt.date():
+                if slot_dt < earliest_allowed_dt:
+                    is_too_soon_or_past = True
+            
+            # 比對已有預約衝突
             conflict = False
             for b in day_bookings:
                 e_start = datetime.strptime(b['start'], "%H:%M")
@@ -335,13 +356,13 @@ elif st.session_state.step == 2:
                     conflict = True
                     break
             
-            if not conflict:
+            if not conflict and not is_too_soon_or_past:
                 available_slots.append(p_start.strftime("%H:%M"))
             
             start_time_current += timedelta(minutes=30)
             
         if not available_slots:
-            st.warning("⚠️ 該日期此時段的空檔不足，請選擇其他日期或縮短服務時長。")
+            st.warning("⚠️ 該日期此時段的空檔不足，或剩餘時段已過期，請選擇其他日期或縮短服務時長。")
             chosen_time = None
         else:
             chosen_time = st.selectbox("請選擇對話開始時間：", available_slots)
@@ -483,9 +504,7 @@ elif st.session_state.step == 4:
                 
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                # =========================================================
-                # 🔥【精準修正核心】：自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
-                # =========================================================
+                # 自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
                 c_name = st.session_state.form_data['name'].strip()
                 existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
                 
@@ -619,11 +638,11 @@ elif st.session_state.step == 5:
 <p style="margin-bottom: 5px;">服務時間：<strong style="font-size: 16px; color: #8b5a2b;">{st.session_state.form_data['booking_start']}</strong></p>
 <p style="margin-bottom: 5px;">服務時長：<strong>{st.session_state.form_data['duration_label']}</strong></p>
 <p style="font-size: 15px; color: #dc2626; font-weight: bold; margin-top: 15px; border-top: 1px dashed #e8e0d2; padding-top: 15px; line-height: 1.6;">
-⚠️ 待心境整理室確認款項後，將由笑長本人發送訊息給你，確認預定的日期時間沒有問題喔！
+⚠️在您加入LINE好友之後， 待心境整理室確認款項，將由笑長透過官方LINE發送訊息給您，確認預定的日期時間沒有問題喔！
 </p>
 </div>""", unsafe_allow_html=True)
     
-    # ➕ 加入官方 LINE 好友按鈕（HTML 完美強制綠底白字粗體，直連官方網址）
+    # ➕ 加入官方 LINE 好友按鈕（LINE 官方綠底純白字樣設計）
     st.markdown("""
     <a href="https://lin.ee/77h6NpL" target="_blank" style="
         display: block;
@@ -639,7 +658,7 @@ elif st.session_state.step == 5:
         box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
         margin-top: 15px;
         margin-bottom: 15px;
-    ">💬 點我加入心境整理室官方 LINE 好友</a>
+    "><span style="color: #ffffff !important; text-decoration: none;">💬 點我加入心境整理室官方 LINE 好友</span></a>
     """, unsafe_allow_html=True)
     
     if st.button("返回心境整理室首頁", use_container_width=True):
