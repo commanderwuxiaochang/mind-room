@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 # ==========================================
 # 0. 系統核心設定（2026 官方最新 API 金鑰）
 # ==========================================
+# 🚨【LINE 通知總開關】：
+# 測試階段請保持 False（關閉通知，測試不耗費 200 則額度）
+# 正式營運請改成 True（開啟通知，自動推播 LINE 給笑長）
+ENABLE_LINE_NOTIFY = False  
+
 LINE_ACCESS_TOKEN = "1dMN8FEd8exukAB6SgrBrUhJHv3YmIBg8pLjfEcoKI8RNFdDN5AvbKHPZQRtq4bcrSGVetzcxIu46h8cehoqGbpUroacvuFJiNnL0l0Ly5iXQ+kUUVezT++Vl7rCDdxzN91VWqxfQqbDnkiy5R4udgdB04t89/1O/w1cDnyilFU="
 BOSS_USER_ID = "Uf87ce7cf80152b10026141791c07432f"
 
@@ -72,6 +77,11 @@ def save_json_file(path, data):
     except: pass
 
 def send_line_message(message_text):
+    # 🔒 安全防護：若通知總開關未開啟，則不消耗免費訊息額度
+    if not ENABLE_LINE_NOTIFY:
+        print("【系統提示】LINE 通知目前為關閉狀態（測試模式），未發送訊息。")
+        return
+
     url = "https://api.line.me/v2/bot/message/push"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"}
     payload = {"to": BOSS_USER_ID, "messages": [{"type": "text", "text": message_text}]}
