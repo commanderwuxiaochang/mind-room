@@ -23,8 +23,11 @@ CLIENT_FILES_DIR = os.path.normpath("d:/心境整理室/05_客戶檔案")
 ADMIN_PASSWORD = "05210809"
 
 # 確保所有本地儲存核心資料夾皆存在
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(CLIENT_FILES_DIR, exist_ok=True)
+try:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    os.makedirs(CLIENT_FILES_DIR, exist_ok=True)
+except Exception:
+    pass
 
 # 網頁初始設定
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
@@ -330,28 +333,22 @@ elif st.session_state.step == 2:
         start_time_current = datetime.strptime("08:00", "%H:%M")
         end_time_limit = datetime.strptime("20:00", "%H:%M")
         
-        # ⏱️ 強制設定：最快預約時間必須在客戶開啟頁面填寫時間的半小時之後
         earliest_allowed_dt = now_dt.replace(tzinfo=None) + timedelta(minutes=30)
         
         while start_time_current + timedelta(minutes=duration_mins) <= end_time_limit:
             p_start = start_time_current
             p_end = start_time_current + timedelta(minutes=duration_mins)
-            
-            # 將時分結合選擇日期精準比對
             slot_dt = datetime.combine(selected_date, p_start.time())
             
-            # 若選擇今天，自動過濾掉早於「填寫時間半小時後」的所有過時/太近時段
             is_too_soon_or_past = False
             if selected_date == now_dt.date():
                 if slot_dt < earliest_allowed_dt:
                     is_too_soon_or_past = True
             
-            # 比對已有預約衝突
             conflict = False
             for b in day_bookings:
                 e_start = datetime.strptime(b['start'], "%H:%M")
                 e_end = datetime.strptime(b['end'], "%H:%M")
-                
                 if not (p_end + timedelta(minutes=30) <= e_start or p_start >= e_end + timedelta(minutes=30)):
                     conflict = True
                     break
@@ -464,8 +461,11 @@ elif st.session_state.step == 4:
                 
                 full_save_path = os.path.normpath(os.path.join(UPLOAD_DIR, safe_filename))
                 
-                with open(full_save_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+                try:
+                    with open(full_save_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                except Exception:
+                    pass
                 
                 st.session_state.form_data['saved_receipt_path'] = full_save_path
                 st.session_state.form_data['receipt_name'] = safe_filename
@@ -504,14 +504,16 @@ elif st.session_state.step == 4:
                 
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                # 自動比對 [CXXXX] 檔案並自動填入 Obsidian 屬性欄位
                 c_name = st.session_state.form_data['name'].strip()
-                existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
+                existing_md_files = []
+                if os.path.exists(CLIENT_FILES_DIR):
+                    try:
+                        existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
+                    except: pass
                 
                 target_md_filename = None
                 client_id_str = None
 
-                # 1. 尋找是否有帶編號的既有檔案（例如：[C0004] 笑長.md）
                 for f_name in existing_md_files:
                     if f_name.endswith(f" {c_name}.md") or f_name == f"{c_name}.md":
                         target_md_filename = f_name
@@ -519,7 +521,6 @@ elif st.session_state.step == 4:
                             client_id_str = f_name[1:f_name.index("]")]
                         break
 
-                # 2. 若為全新客戶，自動算出下一個 CXXXX 編號
                 if not client_id_str:
                     max_id = 0
                     for f_name in existing_md_files:
@@ -535,7 +536,6 @@ elif st.session_state.step == 4:
 
                 full_md_path = os.path.normpath(os.path.join(CLIENT_FILES_DIR, target_md_filename))
 
-                # 3. 讀取原有內容（保留歷史筆記）
                 existing_body = ""
                 if os.path.exists(full_md_path):
                     try:
@@ -548,7 +548,6 @@ elif st.session_state.step == 4:
                                 existing_body = raw_txt.strip()
                     except: pass
 
-                # 4. 組合預約歷史區塊
                 booking_history_block = f"""
 ### 🗓️ 線上網頁預約紀錄（同步時間：{record_time}）
 * **預約時段：** {st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})
@@ -562,7 +561,6 @@ elif st.session_state.step == 4:
 ---
 """
 
-                # 5. 生成完整且精準的 Obsidian 頂部屬性 (YAML Frontmatter)
                 yaml_header = f"""---
 ID: {client_id_str}
 客戶姓名: {c_name}
@@ -581,7 +579,6 @@ Line ID: {st.session_state.form_data['line_id']}
 ---
 """
 
-                # 6. 組合與寫入完整 .md 檔案
                 if not existing_body:
                     final_md_text = f"""{yaml_header}
 # [{client_id_str}] {c_name}
@@ -599,7 +596,6 @@ Line ID: {st.session_state.form_data['line_id']}
                         mf.write(final_md_text)
                 except: pass
 
-                # 訊息發送（僅傳送給笑長本人，接收客戶完整下單資料）
                 boss_msg = (
                     f"🔔【心境整理室 - 新預訂申請（待確認款項）】\n\n"
                     f"👤 客戶稱呼：{st.session_state.form_data['name']} ({st.session_state.form_data['gender']})\n"
@@ -642,7 +638,7 @@ elif st.session_state.step == 5:
 </p>
 </div>""", unsafe_allow_html=True)
     
-    # ➕ 加入官方 LINE 好友按鈕（LINE 官方綠底純白字樣設計）
+    # ➕ 加入官方 LINE 好友按鈕（LINE 官方綠底純白字樣設計 #06C755）
     st.markdown("""
     <a href="https://lin.ee/77h6NpL" target="_blank" style="
         display: block;
@@ -650,14 +646,15 @@ elif st.session_state.step == 5:
         background-color: #06C755;
         color: #ffffff !important;
         text-align: center;
-        padding: 14px 20px;
-        border-radius: 25px;
-        font-size: 18px;
+        padding: 16px 20px;
+        border-radius: 30px;
+        font-size: 19px;
         font-weight: bold;
         text-decoration: none;
-        box-shadow: 0 4px 10px rgba(6, 199, 85, 0.3);
-        margin-top: 15px;
-        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(6, 199, 85, 0.35);
+        margin-top: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
     "><span style="color: #ffffff !important; text-decoration: none;">💬 點我加入心境整理室官方 LINE 好友</span></a>
     """, unsafe_allow_html=True)
     
