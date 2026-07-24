@@ -57,7 +57,7 @@ TAIWAN_CITIES = {
     "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "複興區"],
     "台中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"],
     "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新化區", "左鎮區", "玉井區", "楠西區", "南化區", "仁德區", "關廟區", "龍崎區", "官田區", "麻豆區", "佳里區", "西港區", "七股區", "將軍區", "學甲區", "北門區", "新營區", "後壁區", "白河區", "東山區", "六甲區", "下營區", "柳營區", "鹽水區", "善化區", "大內區", "山上區", "新市區", "安定區"],
-    "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"],
+    "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "茂林區", "茄萣區"],
     "基隆市": ["仁愛區", "信義區", "中正區", "中山區", "安樂區", "暖暖區", "七堵區"],
     "新竹市": ["東區", "北區", "香山區"],
     "新竹縣": ["竹北市", "竹東鎮", "新埔鎮", "關西鎮", "湖口鄉", "新豐鄉", "芎林鄉", "橫山鄉", "北埔鄉", "寶山鄉", "峨眉鄉", "尖石鄉", "五峰鄉"],
@@ -104,7 +104,7 @@ def save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename):
     """同步儲存至本地資料夾與 Google 雲端硬碟"""
     file_bytes = uploaded_file.getbuffer()
     
-    # 1. 優先存入本地硬碟（若在本機執行可直接寫入）
+    # 1. 本地備份寫入
     full_save_path = os.path.normpath(os.path.join(UPLOAD_DIR, safe_filename))
     try:
         with open(full_save_path, "wb") as f:
@@ -112,7 +112,8 @@ def save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename):
     except Exception:
         pass
 
-    # 2. 上傳至 Google 雲端硬碟 (若設定有服務帳號憑證)
+    # 2. 自動同步上傳至 Google 雲端硬碟 (專屬資料夾 ID: 17eLyMiCRVFz3Fit4pJQkfnkESn2gi6j1)
+    upload_status = "未觸發雲端上傳"
     if HAS_GDRIVE_LIB and "gcp_service_account" in st.secrets:
         try:
             creds = service_account.Credentials.from_service_account_info(
@@ -127,10 +128,13 @@ def save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename):
             }
             media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=uploaded_file.type, resumable=True)
             service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            upload_status = "成功同步至 Google 雲端硬碟"
         except Exception as e:
-            print(f"雲端硬碟同步提示：{e}")
+            upload_status = f"雲端硬碟同步失敗：{str(e)}"
+    else:
+        upload_status = "未偵測到 Streamlit Secrets 雲端金鑰，請依說明步驟一設定。"
 
-    return full_save_path
+    return full_save_path, upload_status
 
 # ==========================================
 # 背景智慧追蹤：前一小時自動提醒笑長
@@ -514,11 +518,12 @@ elif st.session_state.step == 4:
                 safe_filename = f"{timestamp}_{st.session_state.form_data['name']}_{uploaded_file.name}"
                 
                 # ☁️ 雙向自動寫入：同步儲存至電腦本地 D:\ 碟與 Google 雲端硬碟
-                full_save_path = save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename)
+                full_save_path, upload_status = save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename)
                 
                 st.session_state.form_data['saved_receipt_path'] = full_save_path
                 st.session_state.form_data['receipt_name'] = safe_filename
                 st.session_state.form_data['pay_note'] = pay_note if pay_note.strip() else "無特別說明"
+                st.session_state.form_data['upload_status'] = upload_status
                 
                 c_cache = load_json_file(CACHE_PATH, {})
                 c_cache[st.session_state.form_data['line_id']] = {
@@ -538,7 +543,8 @@ elif st.session_state.step == 4:
                     "line_id": st.session_state.form_data['line_id'],
                     "phone": st.session_state.form_data['phone'],
                     "reminder_sent": False,
-                    "receipt_name": safe_filename
+                    "receipt_name": safe_filename,
+                    "upload_status": upload_status
                 })
                 save_json_file(BOOKING_DB_PATH, b_db)
                 
@@ -655,7 +661,8 @@ Line ID: {st.session_state.form_data['line_id']}
                     f"💬 客戶 Line ID：{st.session_state.form_data['line_id']}\n"
                     f"📅 預約時段：{st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})\n"
                     f"📝 付款說明：{st.session_state.form_data['pay_note']}\n"
-                    f"✍️ 電子簽章：客戶已簽署【{st.session_state.form_data['signature']}】。\n\n"
+                    f"✍️ 電子簽章：客戶已簽署【{st.session_state.form_data['signature']}】。\n"
+                    f"☁️ 雲端狀態：{upload_status}\n\n"
                     f"📢 請笑長至後台核對圖片，確認無誤後再手動發簡訊/LINE給對方確認唷！"
                 )
                 
@@ -747,6 +754,7 @@ if admin_input == ADMIN_PASSWORD:
                     * **手機號碼：** `{b.get('phone', '未提供')}`
                     * **LINE ID：** `{b.get('line_id', '未提供')}`
                     * **服務方式：** {b.get('service_type', '未提供')}
+                    * **雲端上傳狀態：** `{b.get('upload_status', '未記錄')}`
                     * **定時提醒：** {'已發送' if b.get('reminder_sent') else '未發送（一小時前自動觸發）'}
                     """)
                     
@@ -768,5 +776,16 @@ if admin_input == ADMIN_PASSWORD:
                     
                     if receipt_file and os.path.exists(img_path):
                         st.image(img_path, caption="客戶上傳的轉帳憑證 / 截圖", use_container_width=True)
+                        try:
+                            with open(img_path, "rb") as file_bytes:
+                                st.download_button(
+                                    label="💾 一鍵下載此截圖至電腦",
+                                    data=file_bytes,
+                                    file_name=receipt_file,
+                                    mime="image/png",
+                                    key=f"dl_{idx}"
+                                )
+                        except Exception:
+                            pass
                     else:
                         st.warning("⚠️ 找不到該筆預訂的上傳圖片檔。")
