@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 import google.auth.transport.requests
 
 # ==========================================
-# 0. 系統核心設定（2026 官方最新 API 金鑰）
+# 0. 系統核心設定與跨平台路徑相容（Windows D槽 / 雲端 Linux 通用）
 # ==========================================
 # 🚨【LINE 通知總開關】：
 # 測試階段請保持 False（關閉通知，測試不耗費額度）
@@ -19,17 +19,19 @@ ENABLE_LINE_NOTIFY = False
 LINE_ACCESS_TOKEN = "1dMN8FEd8exukAB6SgrBrUhJHv3YmIBg8pLjfEcoKI8RNFdDN5AvbKHPZQRtq4bcrSGVetzcxIu46h8cehoqGbpUroacvuFJiNnL0l0Ly5iXQ+kUUVezT++Vl7rCDdxzN91VWqxfQqbDnkiy5R4udgdB04t89/1O/w1cDnyilFU="
 BOSS_USER_ID = "Uf87ce7cf80152b10026141791c07432f"
 
-# Windows 系統本地路徑標準化
-CACHE_PATH = os.path.normpath("d:/心境整理室/網頁客戶快取.json")
-BOOKING_DB_PATH = os.path.normpath("d:/心境整理室/已預約時段.json")
-PREORDER_TEMP_PATH = os.path.normpath("d:/心境整理室/預約收款暫存.json")
-UPLOAD_DIR = os.path.normpath("d:/心境整理室/付款截圖")
-CLIENT_FILES_DIR = os.path.normpath("d:/心境整理室/05_客戶檔案") 
+# 💡 智慧相容：判斷電腦是否有 D 槽目錄，若在雲端主機上則自動使用相對路徑
+BASE_DIR = "d:/心境整理室" if os.path.exists("d:/心境整理室") else "."
+
+CACHE_PATH = os.path.normpath(os.path.join(BASE_DIR, "網頁客戶快取.json"))
+BOOKING_DB_PATH = os.path.normpath(os.path.join(BASE_DIR, "已預約時段.json"))
+PREORDER_TEMP_PATH = os.path.normpath(os.path.join(BASE_DIR, "預約收款暫存.json"))
+UPLOAD_DIR = os.path.normpath(os.path.join(BASE_DIR, "付款截圖"))
+CLIENT_FILES_DIR = os.path.normpath(os.path.join(BASE_DIR, "05_客戶檔案")) 
 
 # 🔐 笑長後台登入密碼
 ADMIN_PASSWORD = "05210809"
 
-# 確保所有本地儲存核心資料夾皆存在
+# 確保所有本地與雲端儲存資料夾皆存在
 try:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(CLIENT_FILES_DIR, exist_ok=True)
@@ -85,7 +87,7 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
 TAIWAN_CITIES = {
     "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
     "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"],
-    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "複興區"],
+    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "復興區"],
     "台中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"],
     "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新化區", "左鎮區", "玉井區", "楠西區", "南化區", "仁德區", "關廟區", "龍崎區", "官田區", "麻豆區", "佳里區", "西港區", "七股區", "將軍區", "學甲區", "北門區", "新營區", "後壁區", "白河區", "東山區", "六甲區", "下營區", "柳營區", "鹽水區", "善化區", "大內區", "山上區", "新市區", "安定區"],
     "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"],
@@ -98,7 +100,7 @@ TAIWAN_CITIES = {
     "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "臺西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"],
     "嘉義市": ["東區", "西區"],
     "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"],
-    "屏東縣": ["屏東市", "三地門鄉", "霧臺鄉", "瑪家鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "長治鄉", "麟洛鄉", "竹田鄉", "內埔鄉", "萬丹鄉", "潮州鎮", "泰武鄉", "來義鄉", "萬巒鄉", "嵌頂鄉", "新埤鄉", "南州鄉", "林邊鄉", "東港鎮", "琉球鄉", "佳冬鄉", "新園鄉", "辦寮鄉", "枋山鄉", "春日鄉", "獅子鄉", "牡丹鄉", "車城鄉", "滿州鄉", "恆春鎮"],
+    "屏東縣": ["屏東市", "三地門鄉", "霧臺鄉", "瑪家鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "長治鄉", "麟洛鄉", "竹田鄉", "內埔鄉", "萬丹鄉", "潮州鎮", "泰武鄉", "來義鄉", "萬巒鄉", "嵌頂鄉", "新埤鄉", "南州鄉", "林邊鄉", "東港鎮", "琉球鄉", "佳冬鄉", "新園鄉", "枋寮鄉", "枋山鄉", "春日鄉", "獅子鄉", "牡丹鄉", "車城鄉", "滿州鄉", "恆春鎮"],
     "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"],
     "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"],
     "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "大武鄉", "太麻里鄉", "東河鄉", "長濱鄉", "鹿野鄉", "池上鄉", "綠島鄉", "延平鄉", "海端鄉", "達仁鄉", "金峰鄉", "蘭嶼鄉"],
@@ -505,15 +507,15 @@ elif st.session_state.step == 4:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 safe_filename = f"{timestamp}_{st.session_state.form_data['name']}_{uploaded_file.name}"
                 
-                # 1. 本機備份儲存（Windows 環境）
+                # 1. 本機/雲端伺服器備份儲存
                 full_save_path = os.path.normpath(os.path.join(UPLOAD_DIR, safe_filename))
                 try:
                     with open(full_save_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
-                except Exception:
-                    pass
+                except Exception as local_err:
+                    print(f"本地儲存提醒: {local_err}")
                 
-                # 2. 🔥【核心關鍵修復】：自動同步上傳至 Google 雲端硬碟共用資料夾
+                # 2. 自動同步上傳至 Google 雲端硬碟共用資料夾
                 file_bytes = uploaded_file.getvalue()
                 mime_type = uploaded_file.type or "image/jpeg"
                 drive_success, drive_msg = upload_to_google_drive(file_bytes, safe_filename, mime_type)
@@ -691,7 +693,7 @@ elif st.session_state.step == 5:
 </div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 🔑 笑長專用後台管理面板
+# 🔑 笑長專用後台管理面板（含照片直接預覽功能）
 # ==========================================
 st.markdown("<br><hr>", unsafe_allow_html=True)
 with st.expander("🔑 笑長專用後台管理面板"):
@@ -712,7 +714,25 @@ with st.expander("🔑 笑長專用後台管理面板"):
                     st.success("已釋放該時段！")
                     st.rerun()
                     
-        st.subheader("🖼️ 付款截圖查看說明")
-        st.write("客戶上傳之轉帳憑證，現已自動實時寫入至您的 **Google 雲端硬碟「付款截圖」資料夾** 中，您可以直接開啟 Google 雲端硬碟網頁查看最即時的照片檔案！")
+        st.subheader("🖼️ 付款截圖實時預覽")
+        if os.path.exists(UPLOAD_DIR):
+            try:
+                img_files = [f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.heic', '.webp'))]
+                if img_files:
+                    img_files.sort(reverse=True) # 最新上傳的照片排前面
+                    for img_f in img_files:
+                        img_path = os.path.join(UPLOAD_DIR, img_f)
+                        st.write(f"📸 **截圖檔名：** `{img_f}`")
+                        try:
+                            st.image(img_path, width=350)
+                        except Exception as img_err:
+                            st.warning(f"圖片暫時無法在網頁預覽（可至雲端硬碟觀看）：{img_err}")
+                        st.markdown("---")
+                else:
+                    st.info("目前「付款截圖」資料夾內尚無照片。")
+            except Exception as dir_err:
+                st.warning(f"讀取截圖目錄時發生提醒：{dir_err}")
+        else:
+            st.info("尚未建立「付款截圖」資料夾。")
     elif admin_pwd:
         st.error("❌ 密碼不正確！")
