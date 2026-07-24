@@ -5,12 +5,14 @@ import requests
 import threading
 import time
 from datetime import datetime, timedelta
+from google.oauth2 import service_account
+import google.auth.transport.requests
 
 # ==========================================
 # 0. 系統核心設定（2026 官方最新 API 金鑰）
 # ==========================================
 # 🚨【LINE 通知總開關】：
-# 測試階段請保持 False（關閉通知，測試不耗費 200 則額度）
+# 測試階段請保持 False（關閉通知，測試不耗費額度）
 # 正式營運請改成 True（開啟通知，自動推播 LINE 給笑長）
 ENABLE_LINE_NOTIFY = False  
 
@@ -27,68 +29,57 @@ CLIENT_FILES_DIR = os.path.normpath("d:/心境整理室/05_客戶檔案")
 # 🔐 笑長後台登入密碼
 ADMIN_PASSWORD = "05210809"
 
-# 確保所有本地儲存核心資料夾偕存在
+# 確保所有本地儲存核心資料夾皆存在
 try:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(CLIENT_FILES_DIR, exist_ok=True)
 except Exception:
     pass
 
-# ☁️ Google 雲端硬碟自動上傳核心函數
-def upload_file_to_gdrive(uploaded_file, file_name):
-    """將客戶上傳的轉帳憑證自動存入 Google 雲端硬碟資料夾"""
+# 網頁初始設定
+st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
+
+# ==========================================
+# ☁️ Google 雲端硬碟自動上傳核心函式
+# ==========================================
+def upload_to_google_drive(file_bytes, filename, mime_type):
+    """將客戶上傳的轉帳憑證自動同步寫入 Google 雲端硬碟資料夾"""
     try:
         if "gcp_service_account" not in st.secrets or "drive_folder_id" not in st.secrets:
-            return None
-        
-        from google.oauth2 import service_account
-        from google.auth.transport.requests import Request
+            return False, "Streamlit Secrets 未正確設定 GCP 帳號或資料夾 ID"
         
         service_account_info = dict(st.secrets["gcp_service_account"])
+        if "private_key" in service_account_info:
+            service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+            
         folder_id = st.secrets["drive_folder_id"]
+        scopes = ['https://www.googleapis.com/auth/drive.file']
         
-        scopes = ['https://www.googleapis.com/auth/drive']
-        creds = service_account.Credentials.from_service_account_info(
-            service_account_info, scopes=scopes
-        )
-        
-        auth_req = Request()
+        creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
+        auth_req = google.auth.transport.requests.Request()
         creds.refresh(auth_req)
         access_token = creds.token
         
-        metadata = {
-            'name': file_name,
-            'parents': [folder_id]
-        }
+        url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+        headers = {"Authorization": f"Bearer {access_token}"}
         
-        file_bytes = uploaded_file.getvalue()
-        mime_type = uploaded_file.type if uploaded_file.type else 'image/jpeg'
+        metadata = {
+            "name": filename,
+            "parents": [folder_id]
+        }
         
         files = {
             'data': ('metadata', json.dumps(metadata), 'application/json; charset=UTF-8'),
-            'file': (file_name, file_bytes, mime_type)
+            'file': (filename, file_bytes, mime_type if mime_type else 'image/jpeg')
         }
         
-        headers = {'Authorization': f'Bearer {access_token}'}
-        
-        res = requests.post(
-            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-            headers=headers,
-            files=files
-        )
-        
+        res = requests.post(url, headers=headers, files=files)
         if res.status_code == 200:
-            file_data = res.json()
-            file_id = file_data.get('id')
-            return f"https://drive.google.com/file/d/{file_id}/view"
+            return True, res.json().get('id')
         else:
-            return None
+            return False, f"雲端上傳失敗 ({res.status_code}): {res.text}"
     except Exception as e:
-        print("雲端硬碟上傳失敗:", e)
-        return None
-
-# 網頁初始設定
-st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
+        return False, f"雲端上傳異常: {str(e)}"
 
 # 台灣行政區資料
 TAIWAN_CITIES = {
@@ -183,7 +174,7 @@ def start_reminder_daemon():
 start_reminder_daemon()
 
 # ==========================================
-# 全新溫馨療癒系網頁視覺與字體修正 (CSS)
+# 溫馨療癒系網頁視覺與字體 (CSS)
 # ==========================================
 st.markdown("""
     <style>
@@ -282,7 +273,6 @@ elif st.session_state.step == 1:
     st.markdown('<div class="step-title">第一步：填寫基本聯絡資料</div>', unsafe_allow_html=True)
     
     q1 = st.text_input("1. 希望笑長怎麼稱呼你/妳呢？", value=st.session_state.form_data.get('name', ''))
-    
     gender_options = ["男", "女"]
     default_gender = st.session_state.form_data.get('gender', "男")
     q2 = st.selectbox("2. 性別是？", gender_options, index=gender_options.index(default_gender) if default_gender in gender_options else 0)
@@ -349,7 +339,7 @@ elif st.session_state.step == 1:
                 st.rerun()
 
 # ==========================================
-# 第二步：動態時段選擇（過濾過去與半小時內時段）
+# 第二步：動態時段選擇
 # ==========================================
 elif st.session_state.step == 2:
     st.markdown('<div class="step-title">第二步：選擇您有空的時間</div>', unsafe_allow_html=True)
@@ -393,7 +383,6 @@ elif st.session_state.step == 2:
         available_slots = []
         start_time_current = datetime.strptime("08:00", "%H:%M")
         end_time_limit = datetime.strptime("20:00", "%H:%M")
-        
         earliest_allowed_dt = now_dt.replace(tzinfo=None) + timedelta(minutes=30)
         
         while start_time_current + timedelta(minutes=duration_mins) <= end_time_limit:
@@ -402,9 +391,8 @@ elif st.session_state.step == 2:
             slot_dt = datetime.combine(selected_date, p_start.time())
             
             is_too_soon_or_past = False
-            if selected_date == now_dt.date():
-                if slot_dt < earliest_allowed_dt:
-                    is_too_soon_or_past = True
+            if selected_date == now_dt.date() and slot_dt < earliest_allowed_dt:
+                is_too_soon_or_past = True
             
             conflict = False
             for b in day_bookings:
@@ -445,7 +433,7 @@ elif st.session_state.step == 2:
                     st.rerun()
 
 # ==========================================
-# 第三步：閱讀法律條文與免責聲明
+# 第三步：閱讀條款與電子簽章
 # ==========================================
 elif st.session_state.step == 3:
     st.markdown('<div class="step-title">第三步：閱讀服務條款與免責聲明</div>', unsafe_allow_html=True)
@@ -458,20 +446,17 @@ elif st.session_state.step == 3:
 本服務完全定位為「日常生活陪伴、客觀聆聽與人生經驗分享」。笑長<strong>並非</strong>台灣醫療法規所稱之精神科醫師、臨床心理師或諮商心理師。本服務<strong>絕對不包含、亦無法取代</strong>任何專業的醫療行為、心理諮商、心理治療、精神疾病診斷或藥物治療建議。</p>
 
 <p>2. <strong>溝通風格與共識（雙向真誠交流）</strong>：<br>
-心境整理室重視的是真實且有建設性的思緒梳理。笑長在對話中不會流於形式地盲目附和或敷衍取暖，而是會結合自身的人生閱歷與佛法體悟，從因果智慧的視角，為您提供不同角度的客觀建議。這是一份雙向的真誠交流，讓我們在彼此尊重、自在的氛圍中共同面對心境。</p>
+心境整理室重視的是真實且有建設性的思緒梳理。笑長在對話中不會流於形式地盲目附和或敷衍取暖，而是會結合自身的人生閱歷與佛法體悟，從因果智慧的視角，為您提供不同角度的客觀建議。</p>
 
 <p>3. <strong>求助管道之重要提醒（非醫療承諾）</strong>：<br>
-本服務無法提供<strong>任何</strong>精神官能症狀治療或重大情緒危機介入。若您目前正面臨重度精神困擾、自我傷害或傷害他人等強烈意圖與危機，本服務依法無法提供實質協助，請務必立即尋求正規醫療院所、精神科醫師或專業心理諮商機構之專業協助。</p>
+本服務無法提供<strong>任何</strong>精神官能症狀治療或重大情緒危機介入。若您目前正面臨重度精神困擾、自我傷害或傷害他人等強烈意圖與危機，請務必尋求正規醫療院所或專業心理諮商機構協助。</p>
 
 <p>4. <strong>個人自主行為責任與免責</strong>：<br>
-對話過程中涉及之所有佛法體悟、因果觀念或生活建議，僅供您在安排個人生活時進行多面向的智慧參考。最終之日常抉擇、人生規劃與個人行為責任，仍由預約人本人完全自主決定、承擔與負責，笑長對此不承擔法律損害賠償責任。</p>
-
-<p style="border-top: 1px dashed #d2b48c; padding-top: 10px;">當您於下方輸入身分證真實姓名並勾選同意時，即代表您完全理解、認同並接受上述所有條款，此簽署具備電子簽章契約效力。</p>
+對話過程中涉及之所有佛法體悟、因果觀念或生活建議，僅供您參考。最終之日常抉擇與個人行為責任，仍由預約人本人完全自主決定、承擔與負責。</p>
 </div>""", unsafe_allow_html=True)
     
     sig_name = st.text_input("✍️ 請在此輸入您的【身分證上完整的真實姓名】（作為具法律效力的電子簽章）：", value=st.session_state.form_data.get('signature', ''))
-    
-    legal_agree = st.checkbox("我已詳細閱讀、充分理解並完全同意上述所有服務共識與免責聲明，並保證在此填寫之姓名與所有個資均完全屬實，若有冒用或不實，本人願自負一切法律責任。")
+    legal_agree = st.checkbox("我已詳細閱讀、充分理解並完全同意上述所有服務共識與免責聲明，並保證填寫資訊屬實。")
     
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -491,7 +476,7 @@ elif st.session_state.step == 3:
                 st.rerun()
 
 # ==========================================
-# 第四步：轉帳付款證明上傳與資料同步
+# 第四步：轉帳付款驗證與 Google 雲端自動同步
 # ==========================================
 elif st.session_state.step == 4:
     st.markdown('<div class="step-title">第四步：轉帳付款驗證</div>', unsafe_allow_html=True)
@@ -520,10 +505,7 @@ elif st.session_state.step == 4:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 safe_filename = f"{timestamp}_{st.session_state.form_data['name']}_{uploaded_file.name}"
                 
-                # ☁️ 1. 自動上傳至 Google 雲端硬碟
-                gdrive_link = upload_file_to_gdrive(uploaded_file, safe_filename)
-                
-                # 2. 本地暫存目錄備份
+                # 1. 本機備份儲存（Windows 環境）
                 full_save_path = os.path.normpath(os.path.join(UPLOAD_DIR, safe_filename))
                 try:
                     with open(full_save_path, "wb") as f:
@@ -531,11 +513,21 @@ elif st.session_state.step == 4:
                 except Exception:
                     pass
                 
+                # 2. 🔥【核心關鍵修復】：自動同步上傳至 Google 雲端硬碟共用資料夾
+                file_bytes = uploaded_file.getvalue()
+                mime_type = uploaded_file.type or "image/jpeg"
+                drive_success, drive_msg = upload_to_google_drive(file_bytes, safe_filename, mime_type)
+                
+                if drive_success:
+                    st.toast("⚡ 付款截圖已成功自動寫入 Google 雲端硬碟！", icon="✅")
+                else:
+                    st.warning(f"⚠️ 雲端硬碟備份提示: {drive_msg}")
+                
                 st.session_state.form_data['saved_receipt_path'] = full_save_path
                 st.session_state.form_data['receipt_name'] = safe_filename
                 st.session_state.form_data['pay_note'] = pay_note if pay_note.strip() else "無特別說明"
-                st.session_state.form_data['gdrive_link'] = gdrive_link if gdrive_link else "（已存入暫存）"
                 
+                # 寫入快取與暫存資料庫
                 c_cache = load_json_file(CACHE_PATH, {})
                 c_cache[st.session_state.form_data['line_id']] = {
                     "name": st.session_state.form_data['name'], "gender": st.session_state.form_data['gender'],
@@ -554,8 +546,7 @@ elif st.session_state.step == 4:
                     "line_id": st.session_state.form_data['line_id'],
                     "phone": st.session_state.form_data['phone'],
                     "reminder_sent": False,
-                    "receipt_name": safe_filename,
-                    "gdrive_link": gdrive_link
+                    "receipt_name": safe_filename
                 })
                 save_json_file(BOOKING_DB_PATH, b_db)
                 
@@ -568,13 +559,12 @@ elif st.session_state.step == 4:
                 })
                 save_json_file(PREORDER_TEMP_PATH, preorder_cache)
                 
+                # 自動更新 Obsidian 客戶資料卡 md 檔
                 record_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
                 c_name = st.session_state.form_data['name'].strip()
                 existing_md_files = []
                 if os.path.exists(CLIENT_FILES_DIR):
-                    try:
-                        existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
+                    try: existing_md_files = [f for f in os.listdir(CLIENT_FILES_DIR) if f.endswith('.md')]
                     except: pass
                 
                 target_md_filename = None
@@ -621,7 +611,6 @@ elif st.session_state.step == 4:
 * **預計費用：** NT$ {st.session_state.form_data['total_price']} 元
 * **付款備註/轉帳後五碼：** {st.session_state.form_data['pay_note']}
 * **轉帳憑證檔名：** `{st.session_state.form_data['receipt_name']}`
-* **☁️ 雲端憑證網址：** {st.session_state.form_data['gdrive_link']}
 * **手機號碼：** {st.session_state.form_data['phone']}
 * **電子簽章正名：** {st.session_state.form_data['signature']} (已同意法律條款)
 
@@ -647,14 +636,7 @@ Line ID: {st.session_state.form_data['line_id']}
 """
 
                 if not existing_body:
-                    final_md_text = f"""{yaml_header}
-# [{client_id_str}] {c_name}
-
-## 📅 預約與服務歷史
-{booking_history_block}
-## 💡 心境整理諮詢筆記（v4.0.9 紀錄區）
-* （此處可在心境整理室自動化工具箱中隨時補充諮詢筆記）
-"""
+                    final_md_text = f"{yaml_header}\n# [{client_id_str}] {c_name}\n\n## 📅 預約與服務歷史\n{booking_history_block}\n## 💡 心境整理諮詢筆記（v4.0.9 紀錄區）\n* （此處可在自動化工具箱中隨時補充諮詢筆記）\n"
                 else:
                     final_md_text = f"{yaml_header}\n{existing_body}\n\n{booking_history_block}"
 
@@ -673,9 +655,8 @@ Line ID: {st.session_state.form_data['line_id']}
                     f"💬 客戶 Line ID：{st.session_state.form_data['line_id']}\n"
                     f"📅 預約時段：{st.session_state.form_data['booking_date']} {st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})\n"
                     f"📝 付款說明：{st.session_state.form_data['pay_note']}\n"
-                    f"🖼️ 雲端照片：{st.session_state.form_data['gdrive_link']}\n"
                     f"✍️ 電子簽章：客戶已簽署【{st.session_state.form_data['signature']}】。\n\n"
-                    f"📢 請笑長至雲端硬碟或後台核對圖片，確認無誤後再手動發簡訊/LINE給對方確認唷！"
+                    f"📢 請笑長至雲端硬碟核對截圖，確認無誤後再聯繫對方確認唷！"
                 )
                 
                 send_line_message(boss_msg)
@@ -684,7 +665,7 @@ Line ID: {st.session_state.form_data['line_id']}
                 st.rerun()
 
 # ==========================================
-# 第五步：預訂申請送出（加入官方 LINE 好友）
+# 第五步：預訂申請送出（加 LINE 好友）
 # ==========================================
 elif st.session_state.step == 5:
     st.info("已收到您的預訂申請，請耐心等候審核。")
@@ -692,59 +673,46 @@ elif st.session_state.step == 5:
     orig_date = st.session_state.form_data['booking_date']
     try:
         dt_obj = datetime.strptime(orig_date, "%Y-%m-%d")
-        formatted_date = dt_obj.strftime("%Y年/%m月/%d日")
+        formatted_date = dt_obj.strftime("%Y年%m月%d日")
     except:
         formatted_date = orig_date
 
     st.markdown(f"""<div class="fixed-box" style="text-align: center; border: 2px solid #8b5a2b; background-color: #fdfbf7 !important;">
-<h3 style="color: #8b5a2b; margin-top:0;">已經幫您預訂服務日期與時間</h3>
+<h3 style="color: #8b5a2b; margin-top:0;">🎉 已經幫您預訂服務日期與時間</h3>
 <p style="margin-bottom: 5px;">服務日期：<strong style="font-size: 16px; color: #8b5a2b;">{formatted_date}</strong></p>
-<p style="margin-bottom: 5px;">服務時間：<strong style="font-size: 16px; color: #8b5a2b;">{st.session_state.form_data['booking_start']}</strong></p>
-<p style="margin-bottom: 5px;">服務時長：<strong>{st.session_state.form_data['duration_label']}</strong></p>
-<p style="font-size: 15px; color: #dc2626; font-weight: bold; margin-top: 15px; border-top: 1px dashed #e8e0d2; padding-top: 15px; line-height: 1.6;">
-⚠️ 請務必點擊下方按鈕加入【心境整理室】官方 LINE 好友！<br>
-笑長核對對帳憑證無誤後，將會親自透過官方 LINE 發送確認訊息給您唷！🌱
-</p>
-<div style="margin-top: 20px;">
-    <a href="https://lin.ee/77h6NpL" target="_blank" style="background-color: #06C755; color: white; padding: 12px 28px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 10px rgba(6,199,85,0.3);">💬 點擊加入心境整理室官方 LINE 好友</a>
-</div>
+<p style="margin-bottom: 5px;">服務時間：<strong style="font-size: 16px; color: #8b5a2b;">{st.session_state.form_data['booking_start']} ~ {st.session_state.form_data['booking_end']} ({st.session_state.form_data['duration_label']})</strong></p>
+<p style="margin-bottom: 5px;">服務方式：<strong>{st.session_state.form_data['service_type']}</strong></p>
+<p style="margin-bottom: 5px;">預訂金額：<strong>NT$ {st.session_state.form_data['total_price']} 元</strong></p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("""<div style="text-align: center; margin-top: 20px;">
+<a href="https://lin.ee/77h6NpL" target="_blank" style="background-color: #06C755; color: white; padding: 14px 28px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 18px; display: inline-block; box-shadow: 0 4px 10px rgba(6,199,85,0.3);">💬 點擊加入心境整理室官方 LINE 好友</a>
+<p style="color: #6e543c; font-size: 14px; margin-top: 15px;">加好友後請傳個貼圖或訊息給笑長，方便笑長確認款項與聯繫您喔！</p>
 </div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 👑 笑長專屬後台管理區（暗號解鎖）
+# 🔑 笑長專用後台管理面板
 # ==========================================
 st.markdown("<br><hr>", unsafe_allow_html=True)
-with st.expander("🔐 笑長專屬後台管理區（點擊展開）"):
-    pwd = st.text_input("請輸入笑長後台管理密碼：", type="password")
-    if pwd == ADMIN_PASSWORD:
-        st.success("✅ 暗號正確！已解鎖笑長管理後台。")
+with st.expander("🔑 笑長專用後台管理面板"):
+    admin_pwd = st.text_input("請輸入管理員暗號密碼：", type="password", key="admin_pwd_input")
+    if admin_pwd == ADMIN_PASSWORD:
+        st.success("🔓 後台驗證成功！")
         
-        st.subheader("📋 雲端已預約清單總覽")
-        bookings = load_json_file(BOOKING_DB_PATH, [])
-        if bookings:
-            st.dataframe(bookings)
-            
-            st.markdown("---")
-            st.subheader("🗑️ 釋放 / 刪除個別預約時段")
-            delete_idx = st.number_input("請輸入要刪除的列號（從 0 開始）：", min_value=0, max_value=max(0, len(bookings)-1), step=1)
-            if st.button("確認刪除該預約時段"):
-                removed = bookings.pop(delete_idx)
-                save_json_file(BOOKING_DB_PATH, bookings)
-                st.success(f"已成功刪除【{removed.get('name')}】在 {removed.get('date')} {removed.get('start')} 的預約紀錄！")
-                st.rerun()
+        st.subheader("📌 已預約時段清單")
+        b_list = load_json_file(BOOKING_DB_PATH, [])
+        if not b_list:
+            st.info("目前尚無預約資料。")
         else:
-            st.info("目前尚無任何預約紀錄。")
-            
-        st.markdown("---")
-        st.subheader("🖼️ 已上傳轉帳憑證預覽（後台快取）")
-        if os.path.exists(UPLOAD_DIR):
-            files = [f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.heic'))]
-            if files:
-                selected_file = st.selectbox("請選擇要檢視的轉帳截圖：", files)
-                if selected_file:
-                    file_p = os.path.join(UPLOAD_DIR, selected_file)
-                    st.image(file_p, caption=selected_file, use_container_width=True)
-            else:
-                st.info("後台暫無截圖檔案。")
-    elif pwd != "":
-        st.error("❌ 密碼不正確，無法進入管理後台。")
+            for idx, b in enumerate(b_list):
+                st.write(f"**{idx+1}. {b['date']} ({b['start']}~{b['end']})** - {b['name']} | {b.get('service_type','')} | LINE: {b.get('line_id','')}")
+                if st.button(f"🗑️ 刪除/釋放此時段 ({idx+1})", key=f"del_{idx}"):
+                    b_list.pop(idx)
+                    save_json_file(BOOKING_DB_PATH, b_list)
+                    st.success("已釋放該時段！")
+                    st.rerun()
+                    
+        st.subheader("🖼️ 付款截圖查看說明")
+        st.write("客戶上傳之轉帳憑證，現已自動實時寫入至您的 **Google 雲端硬碟「付款截圖」資料夾** 中，您可以直接開啟 Google 雲端硬碟網頁查看最即時的照片檔案！")
+    elif admin_pwd:
+        st.error("❌ 密碼不正確！")
