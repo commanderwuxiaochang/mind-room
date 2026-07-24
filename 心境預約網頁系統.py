@@ -5,6 +5,16 @@ import requests
 import threading
 import time
 from datetime import datetime, timedelta
+import io
+
+# 嘗試載入 Google 雲端硬碟 API 套件
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseUpload
+    HAS_GDRIVE_LIB = True
+except ImportError:
+    HAS_GDRIVE_LIB = False
 
 # ==========================================
 # 0. 系統核心設定（2026 官方最新 API 金鑰）
@@ -16,6 +26,9 @@ ENABLE_LINE_NOTIFY = False
 
 LINE_ACCESS_TOKEN = "1dMN8FEd8exukAB6SgrBrUhJHv3YmIBg8pLjfEcoKI8RNFdDN5AvbKHPZQRtq4bcrSGVetzcxIu46h8cehoqGbpUroacvuFJiNnL0l0Ly5iXQ+kUUVezT++Vl7rCDdxzN91VWqxfQqbDnkiy5R4udgdB04t89/1O/w1cDnyilFU="
 BOSS_USER_ID = "Uf87ce7cf80152b10026141791c07432f"
+
+# ☁️ Google 雲端硬碟「付款截圖」資料夾專屬 ID
+GDRIVE_FOLDER_ID = "17eLyMiCRVFz3Fit4pJQkfnkESn2gi6j1"
 
 # Windows 系統本地路徑標準化
 CACHE_PATH = os.path.normpath("d:/心境整理室/網頁客戶快取.json")
@@ -37,7 +50,7 @@ except Exception:
 # 網頁初始設定
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
 
-# 台灣行政區資料
+# 台灣行政區資料（完整縣市與鄉鎮區）
 TAIWAN_CITIES = {
     "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
     "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"],
@@ -77,7 +90,6 @@ def save_json_file(path, data):
     except: pass
 
 def send_line_message(message_text):
-    # 🔒 安全防護：若通知總開關未開啟，則不消耗免費訊息額度
     if not ENABLE_LINE_NOTIFY:
         print("【系統提示】LINE 通知目前為關閉狀態（測試模式），未發送訊息。")
         return
@@ -87,6 +99,38 @@ def send_line_message(message_text):
     payload = {"to": BOSS_USER_ID, "messages": [{"type": "text", "text": message_text}]}
     try: requests.post(url, headers=headers, json=payload)
     except: pass
+
+def save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename):
+    """同步儲存至本地資料夾與 Google 雲端硬碟"""
+    file_bytes = uploaded_file.getbuffer()
+    
+    # 1. 優先存入本地硬碟（若在本機執行可直接寫入）
+    full_save_path = os.path.normpath(os.path.join(UPLOAD_DIR, safe_filename))
+    try:
+        with open(full_save_path, "wb") as f:
+            f.write(file_bytes)
+    except Exception:
+        pass
+
+    # 2. 上傳至 Google 雲端硬碟 (若設定有服務帳號憑證)
+    if HAS_GDRIVE_LIB and "gcp_service_account" in st.secrets:
+        try:
+            creds = service_account.Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"],
+                scopes=["https://www.googleapis.com/auth/drive.file"]
+            )
+            service = build('drive', 'v3', credentials=creds)
+            
+            file_metadata = {
+                'name': safe_filename,
+                'parents': [GDRIVE_FOLDER_ID]
+            }
+            media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=uploaded_file.type, resumable=True)
+            service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        except Exception as e:
+            print(f"雲端硬碟同步提示：{e}")
+
+    return full_save_path
 
 # ==========================================
 # 背景智慧追蹤：前一小時自動提醒笑長
@@ -469,13 +513,8 @@ elif st.session_state.step == 4:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 safe_filename = f"{timestamp}_{st.session_state.form_data['name']}_{uploaded_file.name}"
                 
-                full_save_path = os.path.normpath(os.path.join(UPLOAD_DIR, safe_filename))
-                
-                try:
-                    with open(full_save_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                except Exception:
-                    pass
+                # ☁️ 雙向自動寫入：同步儲存至電腦本地 D:\ 碟與 Google 雲端硬碟
+                full_save_path = save_uploaded_file_to_gdrive_and_local(uploaded_file, safe_filename)
                 
                 st.session_state.form_data['saved_receipt_path'] = full_save_path
                 st.session_state.form_data['receipt_name'] = safe_filename
