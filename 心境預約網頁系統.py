@@ -42,7 +42,7 @@ except Exception:
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
 
 # ==========================================
-# ☁️ Google 雲端硬碟自動上傳核心函式
+# ☁️ Google 雲端硬碟自動上傳核心函式 (兩階段穩定同步版)
 # ==========================================
 def upload_to_google_drive(file_bytes, filename, mime_type):
     """將客戶上傳的轉帳憑證自動同步寫入 Google 雲端硬碟資料夾"""
@@ -55,31 +55,45 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
             service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
             
         folder_id = st.secrets["drive_folder_id"]
-        scopes = ['https://www.googleapis.com/auth/drive.file']
+        scopes = ['https://www.googleapis.com/auth/drive']
         
         creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
         auth_req = google.auth.transport.requests.Request()
         creds.refresh(auth_req)
         access_token = creds.token
         
-        url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
-        headers = {"Authorization": f"Bearer {access_token}"}
-        
+        # 第一階段：建立雲端檔案元資料 (Metadata)
+        create_url = "https://www.googleapis.com/drive/v3/files"
+        headers_create = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8"
+        }
         metadata = {
             "name": filename,
             "parents": [folder_id]
         }
         
-        files = {
-            'data': ('metadata', json.dumps(metadata), 'application/json; charset=UTF-8'),
-            'file': (filename, file_bytes, mime_type if mime_type else 'image/jpeg')
+        res_create = requests.post(create_url, headers=headers_create, json=metadata)
+        if res_create.status_code != 200:
+            return False, f"建立雲端檔案失敗 ({res_create.status_code}): {res_create.text}"
+            
+        file_id = res_create.json().get('id')
+        if not file_id:
+            return False, "無法取得雲端檔案 ID"
+            
+        # 第二階段：將圖片資料流直接寫入該雲端檔案
+        upload_url = f"https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=media"
+        headers_upload = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": mime_type if mime_type else "image/jpeg"
         }
         
-        res = requests.post(url, headers=headers, files=files)
-        if res.status_code == 200:
-            return True, res.json().get('id')
+        res_upload = requests.patch(upload_url, headers=headers_upload, data=file_bytes)
+        if res_upload.status_code == 200:
+            return True, file_id
         else:
-            return False, f"雲端上傳失敗 ({res.status_code}): {res.text}"
+            return False, f"上傳圖片內容失敗 ({res_upload.status_code}): {res_upload.text}"
+
     except Exception as e:
         return False, f"雲端上傳異常: {str(e)}"
 
