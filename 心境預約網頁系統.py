@@ -42,7 +42,7 @@ except Exception:
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
 
 # ==========================================
-# ☁️ Google 雲端硬碟自動上傳核心函式（相容強化版）
+# ☁️ Google 雲端硬碟自動上傳核心函式（相容與錯誤除錯強化版）
 # ==========================================
 def upload_to_google_drive(file_bytes, filename, mime_type):
     """將客戶上傳的轉帳憑證寫入 Google 雲端硬碟指定資料夾"""
@@ -52,17 +52,22 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
         if not folder_id and "gcp_service_account" in st.secrets:
             folder_id = st.secrets["gcp_service_account"].get("drive_folder_id")
 
-        if "gcp_service_account" not in st.secrets or not folder_id:
-            return False, "Streamlit Secrets 未正確設定 GCP 帳號或資料夾 ID"
-        
+        if not folder_id:
+            return False, "Streamlit Secrets 中未找到 drive_folder_id 設定"
+
+        if "gcp_service_account" not in st.secrets:
+            return False, "Streamlit Secrets 中未找到 [gcp_service_account] 設定區塊"
+
         # 2. 複製 GCP 設定資訊，避免雜訊欄位干擾認證
         service_account_info = dict(st.secrets["gcp_service_account"])
         if "drive_folder_id" in service_account_info:
             del service_account_info["drive_folder_id"]
 
         if "private_key" in service_account_info:
-            service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
-            
+            pk = service_account_info["private_key"]
+            pk = pk.replace("\\n", "\n")
+            service_account_info["private_key"] = pk
+
         scopes = ['https://www.googleapis.com/auth/drive']
         
         creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
@@ -72,7 +77,6 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
         
         upload_url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
         
-        import json as py_json
         metadata = {
             "name": filename,
             "parents": [folder_id]
@@ -84,7 +88,7 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
         body = (
             f'--{boundary}\r\n'
             f'Content-Type: application/json; charset=UTF-8\r\n\r\n'
-            f'{py_json.dumps(metadata)}\r\n'
+            f'{json.dumps(metadata)}\r\n'
             f'--{boundary}\r\n'
             f'Content-Type: {mime_type if mime_type else "image/jpeg"}\r\n\r\n'
         ).encode('utf-8') + file_bytes + f'\r\n--{boundary}--\r\n'.encode('utf-8')
@@ -99,10 +103,10 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
             res_json = response.json()
             return True, res_json.get('id', 'success')
         else:
-            return False, f"上傳至 Google 雲端失敗 ({response.status_code}): {response.text}"
+            return False, f"Google 雲端拒絕寫入 (HTTP {response.status_code}): {response.text}"
 
     except Exception as e:
-        return False, f"雲端上傳異常: {str(e)}"
+        return False, f"雲端連線過程發生異常: {str(e)}"
 
 # 台灣行政區資料
 TAIWAN_CITIES = {
@@ -541,14 +545,11 @@ elif st.session_state.step == 4:
                 mime_type = uploaded_file.type or "image/jpeg"
                 drive_success, drive_msg = upload_to_google_drive(file_bytes, safe_filename, mime_type)
                 
-                if drive_success:
-                    st.toast("⚡ 付款截圖已成功自動寫入 Google 雲端硬碟！", icon="✅")
-                else:
-                    st.warning(f"⚠️ 雲端硬碟備份提示: {drive_msg}")
-                
                 st.session_state.form_data['saved_receipt_path'] = full_save_path
                 st.session_state.form_data['receipt_name'] = safe_filename
                 st.session_state.form_data['pay_note'] = pay_note if pay_note.strip() else "無特別說明"
+                st.session_state.form_data['drive_success'] = drive_success
+                st.session_state.form_data['drive_msg'] = drive_msg
                 
                 # 寫入快取與暫存資料庫
                 c_cache = load_json_file(CACHE_PATH, {})
@@ -706,6 +707,13 @@ elif st.session_state.step == 5:
 <p>感謝您的信任！笑長已收到您的預約申請與轉帳憑證。</p>
 </div>""", unsafe_allow_html=True)
     
+    # 💡 顯化 Google 雲端硬碟備份狀態
+    if st.session_state.form_data.get('drive_success'):
+        st.success("⚡ 轉帳憑證照片已成功自動同步寫入您的 Google 雲端硬碟！")
+    else:
+        drive_err = st.session_state.form_data.get('drive_msg', '未知連線錯誤')
+        st.warning(f"⚠️ 提示：客戶預約已完成，但轉帳照片寫入 Google 雲端硬碟時出現以下提示：\n\n`{drive_err}`\n\n👉 請笑長查看上述提示，檢查 Secrets 金鑰或資料夾權限設定。")
+
     st.markdown("""<div style="text-align: center; margin-top: 30px; margin-bottom: 30px;">
 <a href="https://lin.ee/77h6NpL" target="_blank" style="background-color: #06C755; color: white; padding: 15px 30px; text-decoration: none; font-size: 18px; font-weight: bold; border-radius: 30px; display: inline-block; box-shadow: 0 4px 10px rgba(6,199,85,0.3);">💬 點擊加入心境整理室官方 LINE 好友</a>
 </div>""", unsafe_allow_html=True)
