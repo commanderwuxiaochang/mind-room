@@ -42,19 +42,27 @@ except Exception:
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
 
 # ==========================================
-# ☁️ Google 雲端硬碟自動上傳核心函式
+# ☁️ Google 雲端硬碟自動上傳核心函式（相容強化版）
 # ==========================================
 def upload_to_google_drive(file_bytes, filename, mime_type):
     """將客戶上傳的轉帳憑證寫入 Google 雲端硬碟指定資料夾"""
     try:
-        if "gcp_service_account" not in st.secrets or "drive_folder_id" not in st.secrets:
+        # 1. 智慧相容：自動嘗試抓取頂層或嵌套內的 folder_id
+        folder_id = st.secrets.get("drive_folder_id")
+        if not folder_id and "gcp_service_account" in st.secrets:
+            folder_id = st.secrets["gcp_service_account"].get("drive_folder_id")
+
+        if "gcp_service_account" not in st.secrets or not folder_id:
             return False, "Streamlit Secrets 未正確設定 GCP 帳號或資料夾 ID"
         
+        # 2. 複製 GCP 設定資訊，避免雜訊欄位干擾認證
         service_account_info = dict(st.secrets["gcp_service_account"])
+        if "drive_folder_id" in service_account_info:
+            del service_account_info["drive_folder_id"]
+
         if "private_key" in service_account_info:
             service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
             
-        folder_id = st.secrets["drive_folder_id"]
         scopes = ['https://www.googleapis.com/auth/drive']
         
         creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
@@ -651,7 +659,7 @@ Line ID: {st.session_state.form_data['line_id']}
 
 # 👤 客戶全紀錄主檔：{c_name} ({client_id_str})
 
-⚠️ 注意：本檔案已連線自動化系統，歷次談話紀錄將會依時間軸自動追加於下方。
+⚠️ 注意：本檔案已連線自動化系統，歷次談話紀錄將會依時間軸自動傳統追加於下方。
 """
                 try:
                     with open(full_md_path, "w", encoding="utf-8") as mf:
