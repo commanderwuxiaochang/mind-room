@@ -75,7 +75,7 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
 TAIWAN_CITIES = {
     "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
     "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"],
-    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "復興區"],
+    "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "複興區"],
     "台中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"],
     "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新化區", "左鎮區", "玉井區", "楠西區", "南化區", "仁德區", "關廟區", "龍崎區", "官田區", "麻豆區", "佳里區", "西港區", "七股區", "將軍區", "學甲區", "北門區", "新營區", "後壁區", "白河區", "東山區", "六甲區", "下營區", "柳營區", "鹽水區", "善化區", "大內區", "山上區", "新市區", "安定區"],
     "高雄市": ["新興區", "前金區", "苓雅區", "鹽埕區", "鼓山區", "旗津區", "前鎮區", "三民區", "楠梓區", "小港區", "左營區", "仁武區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "鳳山區", "大寮區", "林園區", "鳥松區", "大樹區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"],
@@ -663,7 +663,7 @@ elif st.session_state.step == 5:
     st.markdown('<a href="https://lin.ee/77h6NpL" target="_blank" style="display:block; text-align:center; background-color:#06C755; color:white; font-size:18px; font-weight:bold; padding:15px; border-radius:30px; text-decoration:none; box-shadow:0 4px 10px rgba(6,199,85,0.3);">💬 點擊加入心境整理室官方 LINE 好友</a>', unsafe_allow_html=True)
 
 # ==========================================
-# 🔐 笑長專屬後台管理面板 (網頁底部暗號解鎖)
+# 🔐 笑長專屬後台管理面板 (支援一鍵刪除預約與照片)
 # ==========================================
 st.markdown("<br><hr style='border-top: 1px dashed #d2b48c;'><br>", unsafe_allow_html=True)
 with st.expander("🔐 點此展開 笑長專屬後台管理面板"):
@@ -672,22 +672,48 @@ with st.expander("🔐 點此展開 笑長專屬後台管理面板"):
         st.success("✅ 密碼正確，已成功解鎖笑長後台管理區！")
         
         tab_b1, tab_b2 = st.columns(2)
+        
+        # --- 左側：預約資料表與一鍵刪除管理 ---
         with tab_b1:
-            st.markdown("### 📅 當前所有預約紀錄")
+            st.markdown("### 📅 當前所有預約紀錄與管理")
             b_data = load_json_file(BOOKING_DB_PATH, [])
             if b_data:
                 st.dataframe(b_data)
+                
+                st.markdown("---")
+                st.markdown("#### 🗑️ 刪除 / 釋放預約時段")
+                booking_options = [f"{idx+1}. {b['date']} {b['start']}~{b['end']} - {b['name']} ({b.get('service_type','')})" for idx, b in enumerate(b_data)]
+                selected_booking = st.selectbox("請選擇要刪除清空的預約紀錄：", booking_options, key="del_b_select")
+                
+                if st.button("❌ 確認刪除該筆預約（釋放時段）", key="btn_del_booking", use_container_width=True):
+                    selected_idx = booking_options.index(selected_booking)
+                    removed_b = b_data.pop(selected_idx)
+                    save_json_file(BOOKING_DB_PATH, b_data)
+                    st.success(f"✅ 已成功刪除【{removed_b['name']}】在 {removed_b['date']} {removed_b['start']} 的預約紀錄！時段已重新釋放。")
+                    st.rerun()
             else:
                 st.info("目前尚無預約紀錄。")
                 
+        # --- 右側：核銷圖片與一鍵刪除照片 ---
         with tab_b2:
             st.markdown("### 🖼️ 客戶上傳轉帳憑證對帳區")
             if os.path.exists(UPLOAD_DIR):
                 img_files = os.listdir(UPLOAD_DIR)
                 if img_files:
-                    selected_img = st.selectbox("選擇要核對的轉帳憑證圖片：", img_files)
+                    selected_img = st.selectbox("選擇要核對的轉帳憑證圖片：", img_files, key="del_img_select")
                     if selected_img:
-                        st.image(os.path.join(UPLOAD_DIR, selected_img), caption=selected_img, use_container_width=True)
+                        img_path = os.path.join(UPLOAD_DIR, selected_img)
+                        st.image(img_path, caption=selected_img, use_container_width=True)
+                        
+                        st.markdown("---")
+                        if st.button("🗑️ 刪除這張付款截圖圖片", key="btn_del_img", use_container_width=True):
+                            try:
+                                if os.path.exists(img_path):
+                                    os.remove(img_path)
+                                st.success(f"✅ 已成功刪除圖片檔案：{selected_img}")
+                                st.rerun()
+                            except Exception as err:
+                                st.error(f"❌ 刪除圖片失敗：{str(err)}")
                 else:
                     st.info("目前尚無上傳圖片。")
     elif pwd_input != "":
