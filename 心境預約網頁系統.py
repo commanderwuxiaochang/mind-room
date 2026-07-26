@@ -1,11 +1,9 @@
 import os
 import json
-import st
+import streamlit as st
 import requests
 import threading
 import time
-import re
-import streamlit as st
 from datetime import datetime, timedelta
 from google.oauth2 import service_account
 import google.auth.transport.requests
@@ -159,61 +157,6 @@ def delete_google_drive_file(file_id):
             
     return False, "未設定 GCP 金鑰，無法從雲端自動刪除。"
 
-def generate_obsidian_customer_note(booking_info):
-    """預約完成時，自動建立或更新 Obsidian 05_客戶檔案/ 下的 .md 客戶主檔"""
-    try:
-        os.makedirs(CLIENT_FILES_DIR, exist_ok=True)
-        customer_name = booking_info.get("name", "未具名")
-        
-        max_id = 0
-        existing_filename = None
-        for fn in os.listdir(CLIENT_FILES_DIR):
-            if customer_name in fn and fn.endswith(".md"):
-                existing_filename = fn
-                break
-            m = re.search(r'C(\d{4})', fn)
-            if m:
-                num = int(m.group(1))
-                if num > max_id: max_id = num
-                
-        if existing_filename:
-            full_md_path = os.path.join(CLIENT_FILES_DIR, existing_filename)
-        else:
-            new_id = f"C{max_id + 1:04d}"
-            full_md_path = os.path.join(CLIENT_FILES_DIR, f"[{new_id}] {customer_name}.md")
-            meta_header = (
-                "---\n"
-                f"ID: {new_id}\n"
-                f"真實姓名: {booking_info.get('real_name', '')}\n"
-                f"稱呼方式: {customer_name}\n"
-                f"性別: {booking_info.get('gender', '')}\n"
-                f"年齡: {booking_info.get('age', '')}\n"
-                f"居住地: {booking_info.get('city', '')}{booking_info.get('district', '')}\n"
-                f"手機: {booking_info.get('phone', '')}\n"
-                f"Line ID: {booking_info.get('line_id', '')}\n"
-                f"檔案建立日期: {datetime.now().strftime('%Y-%m-%d')}\n"
-                "---\n\n"
-                f"# 👤 客戶全紀錄主檔：{customer_name}\n\n"
-                f"⚠️ 注意：本檔案已連線自動化系統，歷次談話與預約紀錄將會依時間軸自動追加於下方。\n"
-            )
-            with open(full_md_path, "w", encoding="utf-8") as f:
-                f.write(meta_header)
-                
-        record_entry = (
-            f"\n\n---\n\n"
-            f"## 📅 線上預約登記時間：{datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-            f"- 🗓️ **預約服務時段**：{booking_info.get('date')} {booking_info.get('start')} ~ {booking_info.get('end')}\n"
-            f"- 💬 **服務陪伴方式**：{booking_info.get('service_type')}\n"
-            f"- 💰 **預約付款金額**：NT$ {booking_info.get('fee')} 元\n"
-            f"- 🖼️ **轉帳截圖檔名**：{booking_info.get('filename')} (雲端 ID: {booking_info.get('drive_file_id', '無')})\n"
-        )
-        with open(full_md_path, "a", encoding="utf-8") as f:
-            f.write(record_entry)
-        return True
-    except Exception as e:
-        print("Obsidian 筆記寫入提醒:", e)
-        return False
-
 # 台灣行政區完整資料
 TAIWAN_CITIES = {
     "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"],
@@ -233,7 +176,7 @@ TAIWAN_CITIES = {
     "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"],
     "屏東縣": ["屏東市", "三地門鄉", "霧臺鄉", "瑪家鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "長治鄉", "麟洛鄉", "竹田鄉", "內埔鄉", "萬丹鄉", "潮州鎮", "泰武鄉", "來義鄉", "萬巒鄉", "嵌頂鄉", "新埤鄉", "南州鄉", "林邊鄉", "東港鎮", "琉球鄉", "佳冬鄉", "新園鄉", "枋寮鄉", "枋山鄉", "春日鄉", "獅子鄉", "牡丹鄉", "車城鄉", "滿州鄉", "恆春鎮"],
     "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"],
-    "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"],
+    "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光複鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"],
     "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "大武鄉", "太麻里鄉", "東河鄉", "長濱鄉", "鹿野鄉", "池上鄉", "綠島鄉", "延平鄉", "海端鄉", "達仁鄉", "金峰鄉", "蘭嶼鄉"],
     "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"],
     "金門縣": ["金城鎮", "金沙鎮", "金湖鎮", "金寧鄉", "烈嶼鄉", "烏坵鄉"],
@@ -354,41 +297,16 @@ if 'step' not in st.session_state: st.session_state.step = 0
 if 'form_data' not in st.session_state: st.session_state.form_data = {}
 
 # ==========================================
-# 第 0 步：歡迎與服務介紹頁面（完整還原文字版面）
+# 第 0 步：歡迎與服務介紹頁面
 # ==========================================
 if st.session_state.step == 0:
     st.markdown(
         """
         <div class="fixed-box">
-            <h4>☕ 💡 歡迎你前來。坐下來，給自己一杯茶的時間，卸下現實中的所有防備。</h4>
+            <h4>☕ 歡迎前來，給自己一杯茶的時間</h4>
+            <p>這是一個沒有現實利益牽扯、不擔心隱私外洩、沒有角色包袱的安心空間。</p>
+            <p>我是笑長，在這裡我不給盲目的安慰，而是站在客觀獨立的角度，融合人生閱歷與佛法轉念智慧，陪你一同剖析煩惱的來龍去脈。</p>
             <br>
-            <h4>✨ 這裡，是一個完全獨立、沒有利害關係的思緒對話空間</h4>
-            <p>在生活中，每個人心裡一定都有一些堆積很久、卻始終不敢對任何人說的真心話。為什麼我們越來越不敢對身邊的人坦白？</p>
-            <ul>
-                <li><strong>因為現實圈子的利害關係：</strong>現代人生活在錯綜複雜的人際網中，對熟人說了真正的內心話，就得提防彼此之間會不會有什麼利益牽扯或利害關係存在。</li>
-                <li><strong>因為擔心隱私被到處亂說：</strong>畢竟都是現實生活中認識的親朋好友，再怎麼信任，也難免會隱隱擔心自己的脆弱哪天變成別人茶餘飯後的八卦。</li>
-                <li><strong>因為親近之人的角色包袱：</strong>
-                    <ul>
-                        <li>跟父母伴侶說，怕他們聽了窮緊張、跟著操心。</li>
-                        <li>跟朋友同事說，顧慮面子與人際眼光，怕丟臉。</li>
-                        <li>跟晚輩孩子講，更是難以放下身段展現脆弱。</li>
-                    </ul>
-                </li>
-            </ul>
-            <p>如果你正處於這種「不知道該找誰說說心裡話、幫忙解決心中煩悶」的孤單狀態，或者正卡在人生的重大抉擇，希望有人能站在完全不一樣的角度給予建議——來到這裡，你完全不用擔心任何現實利益與流言誹語，可以百分之百放心地對笑長說出你的真話。</p>
-            <br>
-            <h4>🤝 笑長的陪伴風格與服務初衷</h4>
-            <p>我是笑長。心境整理室的唯一目的，就是想用我個人的人生經歷與佛法體悟，來實質協助你面對心底的困境與煩惱。</p>
-            <p>為了不浪費彼此的時間，並達到真正的幫助，在預約前我們必須達成以下共識：</p>
-            <ol>
-                <li><strong>我不會盲目地「百分之百不批判、不給建議」：</strong>如果只是敷衍地拍拍你、盲目地附和、做些流於形式的安慰，那就失去了我協助你梳理困境的本意。我會站在客觀、獨立的視角，適時給予你最真誠的引導與直言建議。</li>
-                <li><strong>過程將融入個人佛法體悟與因果觀念：</strong>在陪伴與對話的過程中，我會運用個人的佛法體悟，從「因果」的視角來為你剖析煩惱的來龍去脈。這純粹是人生智慧的分享，你不需要有任何宗教壓力；但如果你本身對佛法或因果觀念完全無法接受，這個服務可能不太適合你。</li>
-            </ol>
-            <br>
-            <h4>⚠️ 預約前的誠實提醒</h4>
-            <p>心境整理室重視每一次對話的實質效果。如果您正尋找的是「純粹盲目的取暖」，或者「無法接受對話中出現個人佛法體悟與因果的敘述」，那麼笑長 的服務並不適合您，建議您可以尋求其他管道。</p>
-            <br>
-            <hr>
             <p><strong>💰 服務費用：</strong>每 30 分鐘新台幣 500 元（1 小時 1,000 元，依此類推）</p>
             <p><strong>🕒 開放時間：</strong>週四至週日 08:00 ~ 20:00（週一至週三公休）</p>
             <p><strong>💬 服務型態：</strong>LINE 文字對話 或 語音通話</p>
@@ -534,7 +452,7 @@ elif st.session_state.step == 3:
                 st.rerun()
 
 # ==========================================
-# 第 4 步：轉帳截圖上傳與完成預約（除錯與防堵遺失修復版）
+# 第 4 步：轉帳截圖上傳與完成預約
 # ==========================================
 elif st.session_state.step == 4:
     st.markdown('<div class="step-title">步驟 4：付款憑證上傳與完成預約</div>', unsafe_allow_html=True)
@@ -563,32 +481,28 @@ elif st.session_state.step == 4:
             if not uploaded_file:
                 st.error("請先選擇並上傳轉帳截圖圖片喔！")
             else:
-                # ✨ 使用 getvalue() 確保圖片位元資料穩定讀取，防範 Streamlit 重新讀取時清空
-                file_bytes = uploaded_file.getvalue()
+                file_bytes = uploaded_file.read()
                 customer_name = st.session_state.form_data.get('name', '客戶')
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 filename = f"{customer_name}_{timestamp}.jpg"
                 mime_type = uploaded_file.type or "image/jpeg"
                 
-                # 1. 確保儲存資料夾存在，寫入電腦實體圖片檔
-                os.makedirs(UPLOAD_DIR, exist_ok=True)
+                # 1. 儲存於 Streamlit 本地伺服器備份
                 local_save_path = os.path.join(UPLOAD_DIR, filename)
-                local_save_ok = False
                 try:
                     with open(local_save_path, "wb") as f:
                         f.write(file_bytes)
-                    local_save_ok = True
-                except Exception as e_save:
-                    st.warning(f"⚠️ 本地電腦/伺服器圖片儲存提醒：{str(e_save)}")
+                except Exception:
+                    pass
                     
-                # 2. 上傳至 Google 雲端硬碟 (雙通道)
+                # 2. 上傳至 Google 雲端硬碟 (雙通道測試)
                 with st.spinner("正將轉帳憑證同步寫入 Google 雲端硬碟中..."):
                     drive_success, drive_msg, drive_file_id = upload_to_google_drive(file_bytes, filename, mime_type)
                 
                 if drive_success:
                     st.success(f"【雲端同步結果】{drive_msg}")
                 else:
-                    st.warning(f"【備用提示】圖片寫入狀況：{drive_msg}\n(照片已備份於本地：{local_save_path})")
+                    st.warning(f"【備用提示】照片已儲存於系統伺服器，但雲端回報：\n{drive_msg}")
                 
                 # 3. 寫入預約資料庫 (記錄照片檔名與雲端 ID)
                 booked_list = load_json_file(BOOKING_DB_PATH, [])
@@ -613,15 +527,12 @@ elif st.session_state.step == 4:
                 booked_list.append(new_booking)
                 save_json_file(BOOKING_DB_PATH, booked_list)
                 
-                # 4. 自動寫入 Obsidian 05_客戶檔案/ 產生或更新筆記
-                generate_obsidian_customer_note(new_booking)
-
-                # 5. 更新常客快取
+                # 4. 更新常客快取
                 cache_data = load_json_file(CACHE_PATH, {})
                 cache_data[st.session_state.form_data.get('line_id')] = st.session_state.form_data
                 save_json_file(CACHE_PATH, cache_data)
                 
-                # 6. LINE 即時推播給笑長
+                # 5. LINE 即時推播給笑長
                 push_msg = (
                     f"🎉【心境整理室 - 新預約成功通知】\n\n"
                     f"👤 稱呼：{new_booking['name']} ({new_booking['real_name']})\n"
