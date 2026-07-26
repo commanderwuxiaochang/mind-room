@@ -42,7 +42,7 @@ except Exception:
 st.set_page_config(page_title="心境整理室 - 線上預約系統", page_icon="🌱", layout="centered")
 
 # ==========================================
-# ☁️ Google 雲端硬碟自動上傳與刪除核心函式 (雙通道智慧備援版)
+# ☁️ Google 雲端硬碟自動上傳與刪除核心函式 (雙通道智慧強化版)
 # ==========================================
 def upload_to_google_drive(file_bytes, filename, mime_type):
     """雙通道 Google 雲端硬碟自動上傳 (GAS 小幫手 + GCP Service Account)"""
@@ -55,20 +55,18 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
             import base64
             base64_data = base64.b64encode(file_bytes).decode('utf-8')
             payload = {
+                "action": "upload",
                 "filename": filename,
                 "mime_type": mime_type if mime_type else "image/jpeg",
                 "file_base64": base64_data
             }
             res = requests.post(gas_url, json=payload, timeout=25)
             if res.status_code == 200:
-                try:
-                    res_json = res.json()
-                    if res_json.get("status") == "success":
-                        return True, f"✅ 成功透過 GAS 小幫手寫入 Google 雲端硬碟 (檔案 ID: {res_json.get('file_id')})", res_json.get('file_id')
-                    else:
-                        err_messages.append(f"GAS 小幫手回報錯誤: {res_json.get('message')}")
-                except Exception:
-                    err_messages.append(f"GAS 回傳非 JSON 格式內容: {res.text[:100]}")
+                res_json = res.json()
+                if res_json.get("status") == "success":
+                    return True, f"✅ 成功透過 GAS 小幫手寫入 Google 雲端硬碟 (檔案 ID: {res_json.get('file_id')})", res_json.get('file_id')
+                else:
+                    err_messages.append(f"GAS 小幫手回報錯誤: {res_json.get('message')}")
             else:
                 err_messages.append(f"GAS 小幫手連線失敗 (HTTP 代碼 {res.status_code})")
         except Exception as e:
@@ -78,16 +76,11 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
     if "gcp_service_account" in st.secrets and "drive_folder_id" in st.secrets:
         try:
             service_account_info = dict(st.secrets["gcp_service_account"])
-            
-            # 智慧容錯修復：若私鑰欄位填錯，自動相容修正
             if "private_key" in service_account_info:
                 pk = str(service_account_info["private_key"]).replace("\\n", "\n")
                 service_account_info["private_key"] = pk
-            elif "private_key_id" in service_account_info and "-----BEGIN PRIVATE KEY-----" in str(service_account_info["private_key_id"]):
-                pk = str(service_account_info["private_key_id"]).replace("\\n", "\n")
-                service_account_info["private_key"] = pk
                 
-            folder_id = str(st.secrets["drive_folder_id"]).strip()
+            folder_id = st.secrets["drive_folder_id"]
             scopes = ['https://www.googleapis.com/auth/drive']
             
             creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
@@ -130,23 +123,38 @@ def upload_to_google_drive(file_bytes, filename, mime_type):
             err_messages.append(f"GCP API 連線異常: {str(e)}")
 
     if not err_messages:
-        return False, "❌ 未成功載入雲端金鑰，請檢查 Streamlit Secrets 設定格式是否正確（需有獨立換行）。", None
+        return False, "❌ 未設定任何雲端上傳金鑰 (請檢查 Secrets 的 gas_url 或 gcp_service_account)", None
     else:
         return False, "❌ 雲端寫入失敗，原因如下：\n" + "\n".join(err_messages), None
 
 def delete_google_drive_file(file_id):
-    """刪除 Google 雲端硬碟上的指定圖片檔案"""
+    """刪除 Google 雲端硬碟上的指定圖片檔案 (支援 GAS 與 GCP 雙通道刪除)"""
     if not file_id:
-        return False, "無雲端檔案 ID，跳過雲端刪除。"
+        return False, "⚠️ 無雲端檔案 ID，跳過雲端刪除。"
         
+    err_messages = []
+
+    # 管道 1：優先嘗試透過 GAS 小幫手刪除
+    if "gas_url" in st.secrets and str(st.secrets["gas_url"]).strip() and "http" in str(st.secrets["gas_url"]):
+        try:
+            gas_url = str(st.secrets["gas_url"]).strip()
+            payload = {"action": "delete", "file_id": file_id}
+            res = requests.post(gas_url, json=payload, timeout=15)
+            if res.status_code == 200:
+                res_json = res.json()
+                if res_json.get("status") == "success":
+                    return True, f"✅ 已成功透過 GAS 小幫手從 Google 雲端硬碟刪除照片 (ID: {file_id})"
+                else:
+                    err_messages.append(f"GAS 刪除回報: {res_json.get('message')}")
+        except Exception as e:
+            err_messages.append(f"GAS 刪除連線例外: {str(e)}")
+
+    # 管道 2：嘗試透過 GCP Service Account API 刪除
     if "gcp_service_account" in st.secrets:
         try:
             service_account_info = dict(st.secrets["gcp_service_account"])
             if "private_key" in service_account_info:
                 pk = str(service_account_info["private_key"]).replace("\\n", "\n")
-                service_account_info["private_key"] = pk
-            elif "private_key_id" in service_account_info and "-----BEGIN PRIVATE KEY-----" in str(service_account_info["private_key_id"]):
-                pk = str(service_account_info["private_key_id"]).replace("\\n", "\n")
                 service_account_info["private_key"] = pk
                 
             scopes = ['https://www.googleapis.com/auth/drive']
@@ -155,18 +163,18 @@ def delete_google_drive_file(file_id):
             creds.refresh(auth_req)
             access_token = creds.token
             
-            delete_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+            delete_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?supportsAllDrives=true"
             headers = {"Authorization": f"Bearer {access_token}"}
             
             response = requests.delete(delete_url, headers=headers, timeout=15)
             if response.status_code in [200, 204]:
-                return True, f"✅ 已成功從 Google 雲端硬碟刪除照片 (ID: {file_id})"
+                return True, f"✅ 已成功透過 GCP 機器人從 Google 雲端硬碟刪除照片 (ID: {file_id})"
             else:
-                return False, f"⚠️ 雲端刪除回應代碼 {response.status_code}"
+                err_messages.append(f"GCP 雲端刪除拒絕 (代碼 {response.status_code}): {response.text}")
         except Exception as e:
-            return False, f"⚠️ 雲端刪除例外：{str(e)}"
-            
-    return False, "未設定 GCP 金鑰，無法從雲端自動刪除。"
+            err_messages.append(f"GCP 雲端刪除例外: {str(e)}")
+
+    return False, "⚠️ 雲端照片刪除失敗，詳細診斷如下：\n" + "\n".join(err_messages)
 
 # 台灣行政區完整資料
 TAIWAN_CITIES = {
@@ -506,7 +514,7 @@ elif st.session_state.step == 4:
                 except Exception:
                     pass
                     
-                # 2. 上傳至 Google 雲端硬碟 (雙通道測試)
+                # 2. 上傳至 Google 雲端硬碟 (雙通道機制)
                 with st.spinner("正將轉帳憑證同步寫入 Google 雲端硬碟中..."):
                     drive_success, drive_msg, drive_file_id = upload_to_google_drive(file_bytes, filename, mime_type)
                 
@@ -588,7 +596,7 @@ elif st.session_state.step == 5:
         st.rerun()
 
 # ==========================================
-# 🔒 笑長後台管理面板 (下方密碼解鎖區 + 自動連動刪除圖片)
+# 🔒 笑長後台管理面板 (密碼解鎖區 + 自動連動雙通道刪除圖片)
 # ==========================================
 st.markdown("---")
 with st.expander("🔑 笑長後台管理面板 (點擊展開)"):
@@ -634,11 +642,11 @@ with st.expander("🔑 笑長後台管理面板 (點擊展開)"):
                     else:
                         st.warning("伺服器無本地快取，請至 Google 雲端硬碟檢視。")
                 with col_b:
-                    if st.button(f"🗑️ 刪除釋放此時段 (連動刪除圖片)", key=f"del_{idx}"):
+                    if st.button(f"🗑️ 刪除釋放此時段 (連動刪除雲端圖片)", key=f"del_{idx}"):
                         filename_del = b.get('filename')
                         drive_id_del = b.get('drive_file_id')
                         
-                        # 1. 刪除伺服器/本地圖片
+                        # 1. 刪除伺服器本地快取圖片
                         if filename_del:
                             local_target = os.path.join(UPLOAD_DIR, filename_del)
                             if os.path.exists(local_target):
@@ -656,7 +664,7 @@ with st.expander("🔑 笑長後台管理面板 (點擊展開)"):
                             else:
                                 st.warning(d_msg)
                         
-                        # 3. 移除預約紀錄並儲存
+                        # 3. 移除預約紀錄並儲存檔
                         booked_list.pop(idx)
                         save_json_file(BOOKING_DB_PATH, booked_list)
                         st.success("已成功刪除該筆預約與對應之轉帳截圖！")
